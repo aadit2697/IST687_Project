@@ -78,40 +78,59 @@ save.image('static_house.RData')
 ```
 # 2. Joining other resources
 ```{r}
-# Hang: This steps takes my whole afternoon, so I muted variable b just in case you guys run it by accident
-# Update 10.29, I found time zone different for energy usage and weather data, would check it on 10.30 to proceed.
+# Hang: This steps takes my whole afternoon, so I muted this block just in case you guys run it by accident
+# Update 00:50 10.29, I found time zone different for energy usage and weather data, would check it on morning 10.29 to proceed.
+# Update 10:52 10.29, model_table succefully created, None NAs in the dataset, check next block to get access to the data table.
 
 # Form a table for data modeling
 a=1
 # b=5710
-for (i in c(1:nrow(static_house_cleaned))[a:b]){
-  bldg_id=as.character(static_house_cleaned$bldg_id[i])
-  county=as.character(static_house_cleaned$county[i])
-  # Retrieve energy data
-  temp_energy_usage=read_parquet(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/2023-houseData/',bldg_id,'.parquet',sep=''))
-  temp_energy_usage$bldg_id=as.numeric(bldg_id)
-  temp_energy_usage=temp_energy_usage%>%filter(month(time)==7)
-  temp_energy_usage=temp_energy_usage[,c(44,43,1:42)]
-  temp_energy_usage$total=rowSums(temp_energy_usage[3:44])
-  # Retrieve weather data
-  temp_weather=read_csv(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/weather/2023-weather-data/',county,'.csv',sep=''),show_col_types = FALSE)
-  temp_weather=temp_weather%>%filter(month(date_time)==7)
-  temp_weather=temp_weather%>%rename(time=date_time)
-  temp_weather$county=county
-  temp_weather=temp_weather[,c(1,9,2:8)]
-  # Form a table for data modeling (1 house included)
-  temp_1house=left_join(temp_energy_usage,temp_weather,by='time')
-  temp_1house=left_join(temp_1house,static_house_cleaned[1,],by=c('bldg_id','county'))
-  if (i==a){
-    model_table=temp_1house
-  }else{model_table=rbind(model_table,temp_1house)}
-  print( paste(as.character(round((i-a)/(b-a),digits=4)*100),'%',sep='') )
-  # Remove temp data
-  rm(temp_energy_usage,temp_weather,temp_1house,i,bldg_id,county)
-}
+# for (i in c(1:nrow(static_house_cleaned))[a:b]){
+#   bldg_id=as.character(static_house_cleaned$bldg_id[i])
+#   county=as.character(static_house_cleaned$county[i])
+#   # Retrieve energy data
+#   temp_energy_usage=read_parquet(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/2023-houseData/',bldg_id,'.parquet',sep=''))
+#   temp_energy_usage$bldg_id=as.numeric(bldg_id)
+#   tz=tz(temp_energy_usage$time)
+#   temp_energy_usage=temp_energy_usage%>%filter(month(time)==7)
+#   temp_energy_usage=temp_energy_usage[,c(44,43,1:42)]
+#   temp_energy_usage$total=rowSums(temp_energy_usage[3:44])
+#   # Retrieve weather data
+#   temp_weather=read_csv(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/weather/2023-weather-data/',county,'.csv',sep=''),show_col_types = FALSE)
+#   temp_weather$date_time=as.POSIXct(temp_weather$date_time,tz=tz)
+#   temp_weather=temp_weather%>%filter(month(date_time)==7)
+#   temp_weather=temp_weather%>%rename(time=date_time)
+#   temp_weather$county=county
+#   temp_weather=temp_weather[,c(1,9,2:8)]
+#   # Form a table for data modeling (1 house included)
+#   temp_1house=left_join(temp_energy_usage,temp_weather,by='time')
+#   temp_1house=left_join(temp_1house,static_house_cleaned[1,],by=c('bldg_id','county'))
+#   if (i==a){
+#     model_table=temp_1house
+#   }else{model_table=rbind(model_table,temp_1house)}
+#   print( paste(as.character(round((i-a)/(b-a),digits=4)*100),'%',sep='') )
+#   # Remove temp data
+#   rm(temp_energy_usage,temp_weather,temp_1house,i,bldg_id,county)
+# }
 ```
 # 3. Data modeling
 ```{r}
+load('ProjectData_10.29.RData')
+# Big file for GH repo, I'll post a Google Drive link, download it to the project folder to use it
+# Here's the GD link:
+# https://drive.google.com/file/d/1Dh4KLEljDko5zVJgmh-1LBbR12UoHt11/view?usp=sharing
+
+# There are 4 DFs in the Rworkspace, model_table has the formed data ready for modeling, static_house  series DFs has the info for houses, see the preprocessing of house data part for detailed information.
+
+colnames(model_table)
+# 1:building_id,2:time(hourly)
+# 3:43 energy usage (hourly)
+# 46: county
+# 47:53 weather data
+# 54:133 info from static_house_cleaned
+
+# Vector memory exhausted if you run this
+# lm_model=lm(total~.,data=model_table[,-c(3:44,1,46)])
 
 ```
 

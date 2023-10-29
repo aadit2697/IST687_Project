@@ -115,5 +115,62 @@ county
 
 
 
+load('ProjectData.RData')
+model_table$time=as.POSIXct(model_table$time,tz=tz)
+time_list=unique(model_table$time)[741:744]
+remake_table=model_table%>%filter(time %in% time_list)
+done_table=model_table%>%filter(!time %in% time_list)
+remake_table=remake_table[,1:45]
+check_table=static_house_cleaned[,c('bldg_id','county')]
+remake_table=left_join(remake_table,check_table,by='bldg_id')
+for (i in c(1:46)){
+  county=as.character(unique(static_house_cleaned$county)[i])
+  temp_weather=read_csv(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/weather/2023-weather-data/',county,'.csv',sep=''),show_col_types = FALSE)
+  temp_weather$date_time=as.POSIXct(temp_weather$date_time,tz=tz)
+  temp_weather=temp_weather%>%filter(month(date_time)==7)
+  temp_weather=temp_weather%>%rename(time=date_time)
+  temp_weather$county=county
+  temp_weather=temp_weather[741:744,c(1,9,2:8)]
+  if (i==1){
+    weather=temp_weather
+  }else{weather=rbind(weather,temp_weather)}
+}
+temp_table=left_join(remake_table,weather,by=c('time','county'))
+temp_table=left_join(temp_table,static_house_cleaned,by=c('bldg_id','county'))
+temp_done_table=done_table %>%
+  mutate_if(sapply(done_table, is.factor), as.character)
+glimpse(temp_done_table)
+model_table=rbind(temp_table,temp_done_table)
+model_table=model_table%>%arrange(bldg_id,time)
+na_count <-sapply(model_table, function(y) sum(length(which(is.na(y)))))%>%as.data.frame()
+model_table=model_table %>%
+  mutate_if(sapply(model_table, is.character), as.factor)
+glimpse(model_table)
+
+unique(static_house_cleaned$in.cooling_setpoint)
+temp_house=static_house_cleaned %>% slice(rep(1:n(), each = 744))
+model_table$in.cooling_setpoint=temp_house$in.cooling_setpoint
+model_table$in.heating_setpoint=temp_house$in.heating_setpoint
+model_table$upgrade.insulation_roof=temp_house$upgrade.insulation_roof
+model_table$upgrade.infiltration_reduction=temp_house$upgrade.infiltration_reduction
+model_table$upgrade.insulation_ceiling=temp_house$upgrade.insulation_ceiling
+model_table$upgrade.ducts=temp_house$upgrade.ducts
+model_table$upgrade.hvac_heating_type=temp_house$upgrade.hvac_heating_type
+model_table$upgrade.insulation_wall=temp_house$upgrade.insulation_wall
+model_table=model_table %>%
+  mutate_if(sapply(model_table, is.character), as.factor)
+
+rm(check_table,done_table,na_count,remake_table,temp_done_table,temp_energy_usage,temp_house,
+   temp_table,temp_weather,weather)
+rm(bldg_id,county,i,time_list,tz)
+
+
+
+
+
+
+
+
+
 
 
