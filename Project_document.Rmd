@@ -1,0 +1,119 @@
+---
+title: "Project_IST687"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Preprocessing static house dataset
+```{r}
+# Step 0. library packages, setting working directory and load data
+# Library tidyverse
+library(tidyverse)
+# This package is used to read parquet files
+library(arrow)
+# Setting working directory, mute it and set it to your working file
+setwd("~/1 Learning in US/Semester files Fall 2023/IST 687 Intro to DS/IST687_Project")
+# Loading the processed static house table
+static_house_original=read_parquet('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/static_house_info.parquet')
+```
+## Step 1. Remove columns with only one unique value
+```{r}
+house_exclude_list=c()
+for (i in c(1:ncol(static_house_original))) {
+  if (length(unique(static_house_original[,i]))==1){
+    house_exclude_list=c(house_exclude_list,i)
+  }
+  rm(i)
+}
+# Or we can just do "df = df%>% select(where(~n_distinct(.) > 1))"
+# Since weather data is only associated with county, detialed county and puma information (column 28 and 127) are excluded, too, since there are logitude and lattitude information left.
+house_exclude_list=c(house_exclude_list,28,127)
+static_house=static_house_original[,-house_exclude_list]
+# Remove varaibles that won't be used
+rm(house_exclude_list)
+```
+## Step 2. Remove redundant columns
+```{r}
+library(stats)
+# Convert chracters in static_house into factors for correlation calculation
+house_factor <- static_house %>%
+  mutate_if(sapply(static_house, is.character), as.factor)
+# Convert factors to numbers for correlation calculation
+house_num=house_factor%>%mutate_if(sapply(house_factor,is.factor),as.numeric)
+# Calculate correlation matrix
+cor_mat=cor(house_num)
+# Def a function to show a data frame of highly correlated columns
+flattenCorrMat=function(cormat){
+  ut=upper.tri(cormat)
+  data.frame(
+    row=rownames(cormat)[row(cormat)[ut]],
+    col=rownames(cormat)[col(cormat)[ut]],
+    corr=cormat[ut]
+  )
+}
+cor_high=flattenCorrMat(cor_mat)%>%filter(corr>=0.8)%>%arrange(desc(corr))
+view(cor_high)
+# According to the table, here are the columns that are considered redundant after checking with meta data
+redundant_col=c('in.geometry_stories_low_rise','in.misc_pool','in.hvac_has_ducts',
+                'in.plug_load_diversity','in.water_heater_fuel','in.vintage_acs',
+                'in.hvac_heating_type_and_fuel','upgrade.cooking_range','in.geometry_attic_type',
+                'upgrade.insulation_foundation_wall','in.hvac_cooling_type',
+                'upgrade.geometry_foundation_type',
+                'in.heating_fuel','upgrade.clothes_dryer','in.cooling_setpoint_has_offset',
+                'upgrade.water_heater_efficiency',
+                'in.geometry_floor_area_bin')
+# New data frame
+static_house_cleaned=static_house[,!colnames(static_house) %in% redundant_col]
+static_house_cleaned=static_house_cleaned%>%
+  mutate_if(sapply(static_house_cleaned, is.character), as.factor)
+static_house_cleaned=static_house_cleaned%>%rename(county=in.county)
+# Remove variables won't use anymore 
+rm(cor_high,cor_mat,house_factor,house_num,redundant_col,flattenCorrMat)
+# Save workspace into a temp file
+save.image('static_house.RData')
+```
+# 2. Joining other resources
+```{r}
+# Hang: This steps takes my whole afternoon, so I muted variable b just in case you guys run it by accident
+# Update 10.29, I found time zone different for energy usage and weather data, would check it on 10.30 to proceed.
+
+# Form a table for data modeling
+a=1
+# b=5710
+for (i in c(1:nrow(static_house_cleaned))[a:b]){
+  bldg_id=as.character(static_house_cleaned$bldg_id[i])
+  county=as.character(static_house_cleaned$county[i])
+  # Retrieve energy data
+  temp_energy_usage=read_parquet(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/2023-houseData/',bldg_id,'.parquet',sep=''))
+  temp_energy_usage$bldg_id=as.numeric(bldg_id)
+  temp_energy_usage=temp_energy_usage%>%filter(month(time)==7)
+  temp_energy_usage=temp_energy_usage[,c(44,43,1:42)]
+  temp_energy_usage$total=rowSums(temp_energy_usage[3:44])
+  # Retrieve weather data
+  temp_weather=read_csv(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/weather/2023-weather-data/',county,'.csv',sep=''),show_col_types = FALSE)
+  temp_weather=temp_weather%>%filter(month(date_time)==7)
+  temp_weather=temp_weather%>%rename(time=date_time)
+  temp_weather$county=county
+  temp_weather=temp_weather[,c(1,9,2:8)]
+  # Form a table for data modeling (1 house included)
+  temp_1house=left_join(temp_energy_usage,temp_weather,by='time')
+  temp_1house=left_join(temp_1house,static_house_cleaned[1,],by=c('bldg_id','county'))
+  if (i==a){
+    model_table=temp_1house
+  }else{model_table=rbind(model_table,temp_1house)}
+  print( paste(as.character(round((i-a)/(b-a),digits=4)*100),'%',sep='') )
+  # Remove temp data
+  rm(temp_energy_usage,temp_weather,temp_1house,i,bldg_id,county)
+}
+```
+# 3. Data modeling
+```{r}
+
+```
+
+
+
