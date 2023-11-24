@@ -16,7 +16,7 @@ library(tidyverse)
 # This package is used to read parquet files
 library(arrow)
 # Setting working directory, mute it and set it to your working file
-setwd("~/1 Learning in US/Semester files Fall 2023/IST 687 Intro to DS/IST687_Project")
+setwd("~/Documents/1 Learning in US/Semester files Fall 2023/IST 687 Intro to DS/IST687_Project")
 # Loading the processed static house table
 static_house_original=read_parquet('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/static_house_info.parquet')
 ```
@@ -74,7 +74,7 @@ static_house_cleaned=static_house_cleaned%>%rename(county=in.county)
 # Remove variables won't use anymore 
 rm(cor_high,cor_mat,house_factor,house_num,redundant_col,flattenCorrMat)
 # Save workspace into a temp file
-save.image('static_house.RData')
+# save.image('static_house.RData')
 ```
 # 2. Joining other resources
 ```{r}
@@ -115,7 +115,9 @@ a=1
 ```
 # 3. Data modeling
 ```{r}
-load('ProjectData_10.29.RData')
+# work done by 10.29 in this block:
+# load('static_house.RData')
+# load('ProjectData_10.29.RData')
 # Big file for GH repo, I'll post a Google Drive link, download it to the project folder to use it
 # Here's the GD link:
 # https://drive.google.com/file/d/1Dh4KLEljDko5zVJgmh-1LBbR12UoHt11/view?usp=sharing
@@ -124,7 +126,7 @@ load('ProjectData_10.29.RData')
 
 colnames(model_table)
 # 1:building_id,2:time(hourly)
-# 3:43 energy usage (hourly)
+# 3:45 energy usage (hourly)
 # 46: county
 # 47:53 weather data
 # 54:133 info from static_house_cleaned
@@ -133,6 +135,72 @@ colnames(model_table)
 # lm_model=lm(total~.,data=model_table[,-c(3:44,1,46)])
 
 ```
+## 3.1 Attribute selection
+```{r}
+# Work done by Hang on Nov. 23: excluded some attributes in static_house_cleaned
+# There are too many attributes selected to run the model, while only a few of them really works, so we should first reduce some that are not so important.
+average_ecost=model_table[,c(1,45)]%>%group_by(bldg_id)%>%summarise(average_ecost=mean(total))
+average_ecost=left_join(average_ecost,static_house_cleaned,by='bldg_id')
+glimpse(average_ecost)
+# run pearson correlation coefficient first to check the linear correlation
+average_ecost_num=average_ecost%>%mutate_if(sapply(average_ecost,is.factor),as.numeric)
+# Def a function to show a data frame of highly correlated columns
+flattenCorrMat=function(cormat){
+  ut=upper.tri(cormat)
+  data.frame(
+    row=rownames(cormat)[row(cormat)[ut]],
+    col=rownames(cormat)[col(cormat)[ut]],
+    corr=cormat[ut]
+  )
+}
+# Calculate the correlation matrix between total average energy usage and every attributes in static_house_cleaned
+cor_mat_house_energy=cor(average_ecost_num[,-1])%>%flattenCorrMat()%>%filter(row=='average_ecost')%>%
+                          mutate(sign=ifelse(corr>=0,'+','-'))%>%mutate(corr=abs(corr))%>%arrange(desc(corr))
+
+# Set a threshold of 0.1  to excdlue those with limited correlation
+attributes_acceptable_linear=cor_mat_house_energy%>%filter(corr>=0.1)%>%select(col)
+# Filter out those with low linear correaltion
+# Then, check if they have non-linear correlation next using spearman's rank based corrleation coefficient
+attributes_low_cc=cor_mat_house_energy%>%filter(corr<0.1)%>%select(col)
+vec=c()
+for (i in 1:nrow(attributes_low_cc)){
+  temp=cor.test(x=average_ecost_num[[attributes_low_cc$col[i]]],
+                y=average_ecost_num[['average_ecost']],
+                method='spearman')
+  vec=c(vec,temp$estimate)
+}
+rm(i,x,temp)
+# cor_mat_attributes_low_can_do filter out those with >0.1 spearman's rank based correlation coefficient
+attributes_can_do=cbind(attributes_low_cc,cor=vec)%>%mutate(sign=ifelse(cor>=0,'+','-'))%>%
+                                mutate(cor=abs(cor))%>%arrange(desc(cor))%>%filter(cor>0.1)%>%select(col)
+# Update accepted columns
+attributes_acceptable_linear=rbind(attributes_acceptable_linear,attributes_can_do)
+# Update excluded columns
+attributes_excluded=cor_mat_house_energy%>%filter(! col %in% attributes_acceptable_linear$col)%>%select(col)
+rm(attributes_can_do,attributes_low_cc,average_ecost,average_ecost_num,
+   cor_mat_attributes_low,cor_mat_attributes_low_can_do,cor_mat_house_energy,vec)
+# Update model_table
+model_table=model_table[,-which(colnames(model_table) %in% attributes_excluded$col)]
+# save.image('ProjectData_11.23.RData')
+# Google Drive Link for ProjectData_11.23.RData:
+# https://drive.google.com/file/d/18fAyEGaNLvAqoVzfBql6Gvh1KVdepI_n/view?usp=sharing
+```
+## 3.2 model building
+```{r}
+library(caret)
+set.seed(222)
+trainlist=createDataPartition(y=model_table$total,p=0.6,list=FALSE)
+train_set=model_table[trainlist,]
+test_set=model_table[-trainlist,]
+
+
+lm_model=lm(total~.,data=train_set[,-c(1:44)])
+lm_model_info=summary(lm_model)
+lm_model_table=lm_model_info$coefficients%>%data.frame()
+lm_model_info
+```
+
+
 
 
 
