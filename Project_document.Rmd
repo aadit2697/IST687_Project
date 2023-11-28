@@ -76,6 +76,100 @@ rm(cor_high,cor_mat,house_factor,house_num,redundant_col,flattenCorrMat)
 # Save workspace into a temp file
 # save.image('static_house.RData')
 ```
+#  Removing building Ids to balance the dataset- Aadit
+```{r}
+# Work done by Aadit as on Nov 23
+#library(tidyverse)
+county_building_df= data.frame(
+  county = character(),
+  bldg_id = integer(),
+  stringsAsFactors = FALSE
+)
+# we create a mapping for every building ID to its county
+counties= unique(static_house_cleaned$county)
+for (cty in counties) {
+  #print(cty)
+  county_df <- static_house_cleaned %>% filter(county == cty)
+  #print(county_df$bldg_id)
+  print(length(unique(county_df$bldg_id)))
+  # creating a subset dataframe
+  num_unique_bldg_ids <-  length(unique(county_df$bldg_id))
+  subset_df <- data.frame(
+    county = rep(cty, num_unique_bldg_ids),
+    bldg_id = unique(county_df$bldg_id),
+    stringsAsFactors = FALSE
+  )
+  county_building_df <- bind_rows(county_building_df, subset_df)
+  rm(county_df)
+}
+view(county_building_df)
+```
+
+```{r}
+
+num_useful_cols_count= c()
+for (bldg in county_building_df$bldg_id) {
+   print(paste('ID: ',bldg))
+  # reading building info. from the ID
+  building_energy<- read_parquet(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/2023-houseData/',bldg,'.parquet',sep=''))
+  # counting energy consumption column parameters
+  bldg_energy_param_count <-count_columns_more_than_0 <- sum(apply(building_energy, 2, function(column) any(column > 0)))
+  #print(names(building_energy)[apply(building_energy, 2, function(column) any(column > 0))])
+  #print(paste('num_useful_cols in bldg: ',bldg_energy_param_count))
+  num_useful_cols_count<- c(num_useful_cols_count,bldg_energy_param_count)
+  rm(building_energy)
+  
+}
+print(num_useful_cols_count)
+county_building_df$useful_cols_in_bldg_count = num_useful_cols_count # adding a new column that has the number of buildings to consider for every county
+view(county_building_df)
+```
+
+```{r}
+reduced_bldg_per_county_df = data.frame(
+  county = character(),
+  bldg_id = integer(),
+  stringsAsFactors = FALSE
+)
+
+group_by_county_df<- county_building_df %>% group_by(county,useful_cols_in_bldg_count) %>% summarize(count=n()) # count is the count of buildings
+for (cty in unique(group_by_county_df$county)){
+  
+  num_rows_per_county_list <- c() # rm this
+  county_df <- group_by_county_df %>% filter(county == cty) # rm this
+  mean_freq <- round(mean(county_df$count)) # rm this
+  
+  for (c in county_df$count){
+      if (c <= mean_freq){
+        num_rows_per_county_list <- append(num_rows_per_county_list, c)
+      }
+      else if (c > mean_freq){
+        num_rows_per_county_list <- append(num_rows_per_county_list, c - mean_freq)
+      }
+      else{
+        num_rows_per_county_list <- num_rows_per_county_list
+      }
+  }
+  county_df$num_rows_to_slice_per_county <- num_rows_per_county_list
+ 
+  # run a loop through county_df and filter in using county and useful_cols_in_bldg_count 
+  for (i in 1:nrow(county_df)){
+    
+    subset_bldg_per_county_df <- county_building_df %>% filter(county == county_df$county[i],                                                              useful_cols_in_bldg_count == county_df$useful_cols_in_bldg_count[i])
+    
+    # now slice the dataframe using num_rows_per_county_list
+    subset_bldg_per_county_df <- slice(subset_bldg_per_county_df, 1:county_df$num_rows_to_slice_per_county[i])
+    reduced_bldg_per_county_df <- bind_rows(reduced_bldg_per_county_df, subset_bldg_per_county_df)
+  }
+    
+    rm(subset_bldg_per_county_df, num_rows_per_county_list, mean_freq )
+}
+view(reduced_bldg_per_county_df) # we now have 3795 entries compared to 5710 entries before
+# merge this data with static_house_cleaned to procede with reduced building ids per county
+# csv file for reduced_bldg_per_county_df can be found at: https://drive.google.com/file/d/18S4Egeiivs-0j6EXZcNjMwmYhkbPjZKy/view
+#write.csv(reduced_bldg_per_county_df, "reduced_bldg_ids_per_county.csv", col.names = TRUE,row.names = FALSE)
+```
+
 # 2. Joining other resources
 ```{r}
 # Hang: This steps takes my whole afternoon, so I muted this block just in case you guys run it by accident
@@ -113,11 +207,12 @@ a=1
 #   rm(temp_energy_usage,temp_weather,temp_1house,i,bldg_id,county)
 # }
 ```
+
 # 3. Data modeling
 ```{r}
 # work done by 10.29 in this block:
-# load('static_house.RData')
-# load('ProjectData_10.29.RData')
+ load('static_house.RData')
+ load('ProjectData_10.29.RData')
 # Big file for GH repo, I'll post a Google Drive link, download it to the project folder to use it
 # Here's the GD link:
 # https://drive.google.com/file/d/1Dh4KLEljDko5zVJgmh-1LBbR12UoHt11/view?usp=sharing
@@ -135,6 +230,9 @@ colnames(model_table)
 # lm_model=lm(total~.,data=model_table[,-c(3:44,1,46)])
 
 ```
+
+
+
 ## 3.1 Attribute selection
 ```{r}
 # Work done by Hang on Nov. 23: excluded some attributes in static_house_cleaned
