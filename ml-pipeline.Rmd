@@ -1,0 +1,234 @@
+## File created on 11/28/2023 by Revanth Shahukaru
+
+# 4. Machine Learning Pipeline - 
+
+### Work done by Revanth as on Nov 28th and Nov 29th.
+
+------------------------------------------------------------------------
+
+## 4.1. Data Preprocessing
+
+```{r}
+
+# Loading the dataset
+df_before_filtering <- read.csv("final_model2.csv")
+
+# filtering the model_table columns by removing the columns with very low variance
+library(caret)
+?nearZeroVar()
+low_variance_filter <- nearZeroVar(df_before_filtering, saveMetrics = TRUE)
+df <- df_before_filtering[, !low_variance_filter$nzv]
+
+
+# removing an unwanted column X
+df <- df[, !names(df) %in% "X"]
+
+# converting the data types of all the columns
+library(dplyr)
+
+# creating a duplicate dataframe
+df2 <- df
+
+# First, replacing the "YYYY-MM-DD" to "YYYY-MM-DD HH:MM:SS" so that we don't lose the rows (that don't have time) when we convert from char to datetime.
+df$time <- ifelse(nchar(df$time) == 10, paste(df$time, "00:00:00"), df$time)
+
+
+# converting the time column to datetime
+df$time <- as.POSIXct(df$time, format = "%Y-%m-%d %H:%M:%S")
+
+
+# converting char columns to categorical
+df <- df %>%
+  mutate_all(~ if(is.character(.)) as.factor(.) else .)
+
+
+# converting in.bedrooms column to categorical to later use it as label encoding because there is a significance to the order in how many bedrooms are there.
+df$in.bedrooms <- as.factor(df$in.bedrooms)
+
+
+# converting in.reeds_balancing_area column to categorical
+df$in.reeds_balancing_area <- as.factor(df$in.reeds_balancing_area)
+
+
+#replacing the df$in.range_spot_vent_hour's 24 levels with 4 levels
+library(dplyr)
+
+df <- df %>%
+  mutate(
+    in.range_spot_vent_hour = case_when(
+      between(as.integer(gsub("Hour", "", in.range_spot_vent_hour)), 6, 11) ~ "Morning",
+      between(as.integer(gsub("Hour", "", in.range_spot_vent_hour)), 12, 15) ~ "Afternoon",
+      between(as.integer(gsub("Hour", "", in.range_spot_vent_hour)), 16, 19) ~ "Evening",
+      TRUE ~ "Night"
+    )
+  )
+# now, changing the column's dtype to factor
+df$in.range_spot_vent_hour <- as.factor(df$in.range_spot_vent_hour)
+
+
+# Now, doing the same for in.bathroom_spot_vent_hour
+#replacing the df$in.bathroom_spot_vent_hour's 24 levels with 4 levels
+df <- df %>%
+  mutate(
+    in.bathroom_spot_vent_hour = case_when(
+      between(as.integer(gsub("Hour", "", in.bathroom_spot_vent_hour)), 6, 11) ~ "Morning",
+      between(as.integer(gsub("Hour", "", in.bathroom_spot_vent_hour)), 12, 15) ~ "Afternoon",
+      between(as.integer(gsub("Hour", "", in.bathroom_spot_vent_hour)), 16, 19) ~ "Evening",
+      TRUE ~ "Night"
+    )
+  )
+# now, changing the column's dtype to factor
+df$in.bathroom_spot_vent_hour <- as.factor(df$in.bathroom_spot_vent_hour)
+
+
+# converting in.geometry_stories column to categorical
+df$in.geometry_stories <- as.factor(df$in.geometry_stories)
+
+
+# converting in.sqft column to categorical
+df$in.sqft <- as.factor(df$in.sqft)
+
+
+# Saving the csv file
+write.csv(df, file = "final_df.csv")
+# google drive link for the file above - "https://drive.google.com/file/d/1tiMmBYsz83HFjyeCbjgkjaBxpGNVv9sW/view?usp=sharing"
+```
+
+### Grouping the Rows together 
+
+Right now, all the rows in the dataset are 24 parts of each day. So, for every day, there are 24 rows whose data is recorded hourly.
+
+Instead of having the rows divided on an hourly basis, we can group the rows into 4 parts of the day - Morning, Afternoon, Evening and Night. So, instead of 24 rows per date, we get 4 rows per date. This reduces the number of rows in the dataset and makes the whole dataset more efficient to work with.
+
+UPDATE: We are getting very less number of rows for the code chunk below. It wouldn't be ideal to pass a df with 125 observations to the ML model.\
+So, I will pass the df dataframe as the final model dataset after transforming the data.
+
+```{r}
+# colnames(df)
+```
+
+```{r}
+# # Tip: To comment multiple lines, select the lines you want to comment and
+# # press cmd + shift + c
+# 
+# library(dplyr)
+# 
+# # Define the columns to sum, mean, and find mode
+# cols_to_sum <- c(
+#   "out.electricity.ceiling_fan.energy_consumption",
+#   "out.electricity.cooling_fans_pumps.energy_consumption",
+#   "out.electricity.cooling.energy_consumption",
+#   "out.electricity.freezer.energy_consumption",
+#   "out.electricity.lighting_exterior.energy_consumption",
+#   "out.electricity.lighting_garage.energy_consumption",
+#   "out.electricity.lighting_interior.energy_consumption",
+#   "out.electricity.mech_vent.energy_consumption",
+#   "out.electricity.plug_loads.energy_consumption",
+#   "out.electricity.refrigerator.energy_consumption",
+#   "total"
+# )
+# 
+# cols_to_mean <- c(
+#   "Dry.Bulb.Temperature...C.",
+#   "Relative.Humidity....",
+#   "Wind.Speed..m.s.",
+#   "Wind.Direction..Deg."
+# )
+# 
+# cols_to_mode <- setdiff(names(df), c(cols_to_sum, cols_to_mean))
+# 
+# # Use the columns in the summarize function
+# df3 <- df %>%
+#   # Create a new column for time period based on hours
+#   mutate(
+#     time_period = case_when(
+#       hour(time) %in% 6:11 ~ "Morning",
+#       hour(time) %in% 12:15 ~ "Afternoon",
+#       hour(time) %in% 16:19 ~ "Evening",
+#       hour(time) %in% c(20, 21, 22, 23, 0, 1, 2, 3, 4, 5) ~ "Night",
+#       TRUE ~ NA_character_
+#     ),
+#     plain_date = as.Date(time)  # New column for plain date
+#   ) %>%
+#   # Group by plain date, time period
+#   group_by(plain_date, time_period) %>%
+#   # Aggregate columns based on their type
+#   summarize(
+#     # Select numerical columns to aggregate (sum)
+#     across(
+#       cols_to_sum,
+#       list(
+#         sum = ~ sum(.)
+#       )
+#     ),
+#     # Select numerical columns to aggregate (mean)
+#     across(
+#       cols_to_mean,
+#       list(
+#         mean = ~ mean(.)
+#       )
+#     ),
+#     # Select categorical columns to find mode
+#     across(
+#       # Add other categorical columns here
+#       cols_to_mode,
+#       list(
+#         mode = ~ as.character(which.max(table(.)))
+#       )
+#     ),
+#     .groups = 'drop'
+#   )
+
+```
+
+Since there are a lot of columns and a lot of levels in many of the categorical columns on top of that, we will end up with a lot of columns once we perform One Hot Encoding and Label Encoding to convert the categorical columns to numerical columns. So, this is the final time for us to think about reducing the number of dimensions as much as possible so that the model can perform better with comparitively lesser columns.
+
+```{r}
+# str(df)
+```
+
+------------------------------------------------------------------------
+
+## 4.2. Train Test Split
+
+```{r}
+
+# Our target variable in the dataset is df$total which indicates the total power consumed
+target_variable <- df$total
+
+# Step 3: Train-Test Split
+set.seed(123)  # for reproducibility
+
+# createDataPartition helps you create indices or logical vectors that define a stratified random split of the data. 
+# It's particularly useful for ensuring that the distribution of the outcome variable is similar in both the training and testing datasets.
+# We are using an 80-20 split for the train and test datasets respectively.
+split_index <- createDataPartition(target_variable, p = 0.8, list = FALSE)
+train_data <- df[split_index, ]
+test_data <- df[-split_index, ]
+```
+
+## 4.3. Data Transformation
+
+```{r}
+
+# Revanth's further plan-
+
+# Data transformation can be divided into two parts-
+# 1. For Numerical columns
+# We can transform the numerical columns with standardization or normalization
+
+# 2. For Categorical columns
+# We can transform categorical columns to numerical with One Hot Encoding and Label Encoding
+
+# Once the data is transformed, we can pass the train regression models on the train dataset and test it on the test dataset. We can use algorithms such as linear regression, decision trees, random forests, gradient boosting, or support vector regression because our problem statement is to predict the power consumption - which is a numerical column.
+
+# We can use evaluation metrics such as Root Mean Squared Error (rmse), etc. to evaluate the model's performance and tune the hyperparameters according to that.
+
+# Revanth worked till the above line.
+```
+
+# Other team members can work from below
+
+```{r}
+
+```

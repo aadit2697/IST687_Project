@@ -1,0 +1,326 @@
+---
+title: "Project_IST687"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Preprocessing static house dataset
+
+```{r}
+# Step 0. library packages, setting working directory and load data
+# Library tidyverse
+library(tidyverse)
+# This package is used to read parquet files
+library(arrow)
+# Setting working directory, mute it and set it to your working file
+setwd("/Users/r.shahukaru/Desktop/IST 687/Project")
+# Loading the processed static house table
+static_house_original=read_parquet('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/static_house_info.parquet')
+```
+
+## Step 1. Remove columns with only one unique value
+
+```{r}
+house_exclude_list=c()
+for (i in c(1:ncol(static_house_original))) {
+  if (length(unique(static_house_original[,i]))==1){
+    house_exclude_list=c(house_exclude_list,i)
+  }
+  rm(i)
+}
+# Or we can just do "df = df%>% select(where(~n_distinct(.) > 1))"
+# Since weather data is only associated with county, detialed county and puma information (column 28 and 127) are excluded, too, since there are logitude and lattitude information left.
+house_exclude_list=c(house_exclude_list,28,127)
+static_house=static_house_original[,-house_exclude_list]
+# Remove varaibles that won't be used
+rm(house_exclude_list)
+```
+
+## Step 2. Remove redundant columns
+
+```{r}
+library(stats)
+# Convert chracters in static_house into factors for correlation calculation
+house_factor <- static_house %>%
+  mutate_if(sapply(static_house, is.character), as.factor)
+# Convert factors to numbers for correlation calculation
+house_num=house_factor%>%mutate_if(sapply(house_factor,is.factor),as.numeric)
+# Calculate correlation matrix
+cor_mat=cor(house_num)
+# Def a function to show a data frame of highly correlated columns
+flattenCorrMat=function(cormat){
+  ut=upper.tri(cormat)
+  data.frame(
+    row=rownames(cormat)[row(cormat)[ut]],
+    col=rownames(cormat)[col(cormat)[ut]],
+    corr=cormat[ut]
+  )
+}
+cor_high=flattenCorrMat(cor_mat)%>%filter(corr>=0.8)%>%arrange(desc(corr))
+view(cor_high)
+# According to the table, here are the columns that are considered redundant after checking with meta data
+redundant_col=c('in.geometry_stories_low_rise','in.misc_pool','in.hvac_has_ducts',
+                'in.plug_load_diversity','in.water_heater_fuel','in.vintage_acs',
+                'in.hvac_heating_type_and_fuel','upgrade.cooking_range','in.geometry_attic_type',
+                'upgrade.insulation_foundation_wall','in.hvac_cooling_type',
+                'upgrade.geometry_foundation_type',
+                'in.heating_fuel','upgrade.clothes_dryer','in.cooling_setpoint_has_offset',
+                'upgrade.water_heater_efficiency',
+                'in.geometry_floor_area_bin')
+# New data frame
+static_house_cleaned=static_house[,!colnames(static_house) %in% redundant_col]
+static_house_cleaned=static_house_cleaned%>%
+  mutate_if(sapply(static_house_cleaned, is.character), as.factor)
+static_house_cleaned=static_house_cleaned%>%rename(county=in.county)
+# Remove variables won't use anymore 
+rm(cor_high,cor_mat,house_factor,house_num,redundant_col,flattenCorrMat)
+# Save workspace into a temp file
+# save.image('static_house.RData')
+```
+
+# Removing building Ids to balance the dataset- Aadit
+
+```{r}
+# Work done by Aadit as on Nov 23
+#library(tidyverse)
+county_building_df= data.frame(
+  county = character(),
+  bldg_id = integer(),
+  stringsAsFactors = FALSE
+)
+# we create a mapping for every building ID to its county
+counties= unique(static_house_cleaned$county)
+for (cty in counties) {
+  #print(cty)
+  county_df <- static_house_cleaned %>% filter(county == cty)
+  #print(county_df$bldg_id)
+  print(length(unique(county_df$bldg_id)))
+  # creating a subset dataframe
+  num_unique_bldg_ids <-  length(unique(county_df$bldg_id))
+  subset_df <- data.frame(
+    county = rep(cty, num_unique_bldg_ids),
+    bldg_id = unique(county_df$bldg_id),
+    stringsAsFactors = FALSE
+  )
+  county_building_df <- bind_rows(county_building_df, subset_df)
+  rm(county_df)
+}
+view(county_building_df)
+```
+
+```{r}
+
+num_useful_cols_count= c()
+for (bldg in county_building_df$bldg_id) {
+   print(paste('ID: ',bldg))
+  # reading building info. from the ID
+  building_energy<- read_parquet(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/2023-houseData/',bldg,'.parquet',sep=''))
+  # counting energy consumption column parameters
+  bldg_energy_param_count <-count_columns_more_than_0 <- sum(apply(building_energy, 2, function(column) any(column > 0)))
+  #print(names(building_energy)[apply(building_energy, 2, function(column) any(column > 0))])
+  #print(paste('num_useful_cols in bldg: ',bldg_energy_param_count))
+  num_useful_cols_count<- c(num_useful_cols_count,bldg_energy_param_count)
+  rm(building_energy)
+  
+}
+print(num_useful_cols_count)
+county_building_df$useful_cols_in_bldg_count = num_useful_cols_count # adding a new column that has the number of buildings to consider for every county
+view(county_building_df)
+```
+
+```{r}
+reduced_bldg_per_county_df = data.frame(
+  county = character(),
+  bldg_id = integer(),
+  stringsAsFactors = FALSE
+)
+
+group_by_county_df<- county_building_df %>% group_by(county,useful_cols_in_bldg_count) %>% summarize(count=n()) # count is the count of buildings
+for (cty in unique(group_by_county_df$county)){
+  
+  num_rows_per_county_list <- c() # rm this
+  county_df <- group_by_county_df %>% filter(county == cty) # rm this
+  mean_freq <- round(mean(county_df$count)) # rm this
+  
+  for (c in county_df$count){
+      if (c <= mean_freq){
+        num_rows_per_county_list <- append(num_rows_per_county_list, c)
+      }
+      else if (c > mean_freq){
+        num_rows_per_county_list <- append(num_rows_per_county_list, c - mean_freq)
+      }
+      else{
+        num_rows_per_county_list <- num_rows_per_county_list
+      }
+  }
+  county_df$num_rows_to_slice_per_county <- num_rows_per_county_list
+ 
+  # run a loop through county_df and filter in using county and useful_cols_in_bldg_count 
+  for (i in 1:nrow(county_df)){
+    
+    subset_bldg_per_county_df <- county_building_df %>% filter(county == county_df$county[i],                                                              useful_cols_in_bldg_count == county_df$useful_cols_in_bldg_count[i])
+    
+    # now slice the dataframe using num_rows_per_county_list
+    subset_bldg_per_county_df <- slice(subset_bldg_per_county_df, 1:county_df$num_rows_to_slice_per_county[i])
+    reduced_bldg_per_county_df <- bind_rows(reduced_bldg_per_county_df, subset_bldg_per_county_df)
+  }
+    
+    rm(subset_bldg_per_county_df, num_rows_per_county_list, mean_freq )
+}
+view(reduced_bldg_per_county_df) # we now have 3795 entries compared to 5710 entries before
+# merge this data with static_house_cleaned to procede with reduced building ids per county
+# csv file for reduced_bldg_per_county_df can be found at: https://drive.google.com/file/d/18S4Egeiivs-0j6EXZcNjMwmYhkbPjZKy/view
+#write.csv(reduced_bldg_per_county_df, "reduced_bldg_ids_per_county.csv", col.names = TRUE,row.names = FALSE)
+```
+
+# 2. Joining other resources
+
+```{r}
+# Hang: This steps takes my whole afternoon, so I muted this block just in case you guys run it by accident
+# Update 00:50 10.29, I found time zone different for energy usage and weather data, would check it on morning 10.29 to proceed.
+# Update 10:52 10.29, model_table succefully created, None NAs in the dataset, check next block to get access to the data table.
+
+# Form a table for data modeling
+a=1
+# b=5710
+# for (i in c(1:nrow(static_house_cleaned))[a:b]){
+#   bldg_id=as.character(static_house_cleaned$bldg_id[i])
+#   county=as.character(static_house_cleaned$county[i])
+#   # Retrieve energy data
+#   temp_energy_usage=read_parquet(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/2023-houseData/',bldg_id,'.parquet',sep=''))
+#   temp_energy_usage$bldg_id=as.numeric(bldg_id)
+#   tz=tz(temp_energy_usage$time)
+#   temp_energy_usage=temp_energy_usage%>%filter(month(time)==7)
+#   temp_energy_usage=temp_energy_usage[,c(44,43,1:42)]
+#   temp_energy_usage$total=rowSums(temp_energy_usage[3:44])
+#   # Retrieve weather data
+#   temp_weather=read_csv(paste('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/weather/2023-weather-data/',county,'.csv',sep=''),show_col_types = FALSE)
+#   temp_weather$date_time=as.POSIXct(temp_weather$date_time,tz=tz)
+#   temp_weather=temp_weather%>%filter(month(date_time)==7)
+#   temp_weather=temp_weather%>%rename(time=date_time)
+#   temp_weather$county=county
+#   temp_weather=temp_weather[,c(1,9,2:8)]
+#   # Form a table for data modeling (1 house included)
+#   temp_1house=left_join(temp_energy_usage,temp_weather,by='time')
+#   temp_1house=left_join(temp_1house,static_house_cleaned[1,],by=c('bldg_id','county'))
+#   if (i==a){
+#     model_table=temp_1house
+#   }else{model_table=rbind(model_table,temp_1house)}
+#   print( paste(as.character(round((i-a)/(b-a),digits=4)*100),'%',sep='') )
+#   # Remove temp data
+#   rm(temp_energy_usage,temp_weather,temp_1house,i,bldg_id,county)
+# }
+```
+
+# 3. Data modeling
+
+```{r}
+# work done by 10.29 in this block:
+ load('static_house.RData')
+ load('ProjectData_10.29.RData')
+# Big file for GH repo, I'll post a Google Drive link, download it to the project folder to use it
+# Here's the GD link:
+# https://drive.google.com/file/d/1Dh4KLEljDko5zVJgmh-1LBbR12UoHt11/view?usp=sharing
+
+# There are 4 DFs in the Rworkspace, model_table has the formed data ready for modeling, static_house  series DFs has the info for houses, see the preprocessing of house data part for detailed information.
+
+colnames(model_table)
+# 1:building_id,2:time(hourly)
+# 3:45 energy usage (hourly)
+# 46: county
+# 47:53 weather data
+# 54:133 info from static_house_cleaned
+
+# Vector memory exhausted if you run this
+# lm_model=lm(total~.,data=model_table[,-c(3:44,1,46)])
+
+```
+
+## 3.1 Attribute selection
+
+```{r}
+# Work done by Hang on Nov. 23: excluded some attributes in static_house_cleaned
+# There are too many attributes selected to run the model, while only a few of them really works, so we should first reduce some that are not so important.
+average_ecost=model_table[,c(1,45)]%>%group_by(bldg_id)%>%summarise(average_ecost=mean(total))
+average_ecost=left_join(average_ecost,static_house_cleaned,by='bldg_id')
+glimpse(average_ecost)
+# run pearson correlation coefficient first to check the linear correlation
+average_ecost_num=average_ecost%>%mutate_if(sapply(average_ecost,is.factor),as.numeric)
+# Def a function to show a data frame of highly correlated columns
+flattenCorrMat=function(cormat){
+  ut=upper.tri(cormat)
+  data.frame(
+    row=rownames(cormat)[row(cormat)[ut]],
+    col=rownames(cormat)[col(cormat)[ut]],
+    corr=cormat[ut]
+  )
+}
+# Calculate the correlation matrix between total average energy usage and every attributes in static_house_cleaned
+cor_mat_house_energy=cor(average_ecost_num[,-1])%>%flattenCorrMat()%>%filter(row=='average_ecost')%>%
+                          mutate(sign=ifelse(corr>=0,'+','-'))%>%mutate(corr=abs(corr))%>%arrange(desc(corr))
+
+# Set a threshold of 0.1  to excdlue those with limited correlation
+attributes_acceptable_linear=cor_mat_house_energy%>%filter(corr>=0.1)%>%select(col)
+# Filter out those with low linear correaltion
+# Then, check if they have non-linear correlation next using spearman's rank based corrleation coefficient
+attributes_low_cc=cor_mat_house_energy%>%filter(corr<0.1)%>%select(col)
+vec=c()
+for (i in 1:nrow(attributes_low_cc)){
+  temp=cor.test(x=average_ecost_num[[attributes_low_cc$col[i]]],
+                y=average_ecost_num[['average_ecost']],
+                method='spearman')
+  vec=c(vec,temp$estimate)
+}
+rm(i,x,temp)
+# cor_mat_attributes_low_can_do filter out those with >0.1 spearman's rank based correlation coefficient
+attributes_can_do=cbind(attributes_low_cc,cor=vec)%>%mutate(sign=ifelse(cor>=0,'+','-'))%>%
+                                mutate(cor=abs(cor))%>%arrange(desc(cor))%>%filter(cor>0.1)%>%select(col)
+# Update accepted columns
+attributes_acceptable_linear=rbind(attributes_acceptable_linear,attributes_can_do)
+# Update excluded columns
+attributes_excluded=cor_mat_house_energy%>%filter(! col %in% attributes_acceptable_linear$col)%>%select(col)
+rm(attributes_can_do,attributes_low_cc,average_ecost,average_ecost_num,
+   cor_mat_attributes_low,cor_mat_attributes_low_can_do,cor_mat_house_energy,vec)
+# Update model_table
+model_table=model_table[,-which(colnames(model_table) %in% attributes_excluded$col)]
+# save.image('ProjectData_11.23.RData')
+# Google Drive Link for ProjectData_11.23.RData:
+# https://drive.google.com/file/d/18fAyEGaNLvAqoVzfBql6Gvh1KVdepI_n/view?usp=sharing
+# On Nov 28th, Biswadip worked on the dataset after Aadit modified the dataset and shared the final csv file on google drive: "https://drive.google.com/file/d/1LnsriFUWdSw_rZK458_PJLmeq8arfjE-/view"
+
+
+# Work done by Revanth as on Nov 28
+# I am naming the csv file that Biswadip provided as df.
+df_before_filtering <- read.csv("final_model2.csv")
+
+# filtering the model_table columns by removing the columns with very low variance
+library(caret)
+?nearZeroVar()
+low_variance_filter <- nearZeroVar(df_before_filtering, saveMetrics = TRUE)
+df <- df_before_filtering[, !low_variance_filter$nzv]
+
+# Saving the df to a new csv file called as df-for-ml-pipeline.csv
+write.csv(df, "df-for-ml-pipeline.csv", , col.names = TRUE, row.names = FALSE)
+
+# As of now, df is the final dataset that's going to be used in a new Rmd file so that we can work on the Machine Learning Pipeline.
+```
+
+## 3.2 model building
+
+```{r}
+library(caret)
+set.seed(222)
+trainlist=createDataPartition(y=model_table$total,p=0.6,list=FALSE)
+train_set=model_table[trainlist,]
+test_set=model_table[-trainlist,]
+
+
+lm_model=lm(total~.,data=train_set[,-c(1:44)])
+lm_model_info=summary(lm_model)
+lm_model_table=lm_model_info$coefficients%>%data.frame()
+lm_model_info
+```
