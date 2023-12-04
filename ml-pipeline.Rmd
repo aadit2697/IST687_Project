@@ -265,11 +265,18 @@ train_data <- df[split_index, ]
 test_data <- df[-split_index, ]
 ```
 
-## 4.3. Data Transformation
+### Saving the data
 
 ```{r}
 
-save.image("ml-pipeline.RData")
+# save.image("ml-pipeline.RData")
+# Google Drive Link for pipeline.RData:
+# https://drive.google.com/file/d/1aOiSMTMu5scBHUbvFQKDYerSUiWXWhee/view?usp=share_link
+```
+
+## 4.3. Data Transformation
+
+```{r}
 
 # Revanth's further plan-
 
