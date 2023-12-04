@@ -1,0 +1,105 @@
+---
+title: "Project_descriptive_analysis"
+author: "Hag"
+date: "2023-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Here's the R workspace link for this file:
+# https://drive.google.com/file/d/1Yvzm8HzQ9NLTax_ZyZN0CTfkatoYf9SS/view?usp=sharing
+# model_table=df_before_filtering, excluding the 1st column (index, no use)
+# static_house_updated=static_house_cleaned excluding some bldg_ids
+# energy_bldg has the total energy usage for each bldg, derived from model_table
+# energy_hour has the total and average energy usage for every hour, derived from model_table
+# house_energy is the result of static_house_updated left join energy_bldg
+```
+
+## Read in data
+
+I used this table excluding some bldg_ids but not excluding columns with low variances. I renamed it model_table for later usage
+
+```{r Hang}
+library(tidyverse)
+library(lubridate)
+# Setting working directory, mute it and set it to your working file
+  # Shahukaru:
+  # setwd("/Users/r.shahukaru/Desktop/IST 687/Project")
+  # Hang:
+#   setwd("~/Documents/1 Learning in US/Semester files Fall 2023/IST 687 Intro to DS/IST687_Project")
+# load('descriptive.RData')
+```
+
+## Plots and descriptive analysis
+
+```{r Hang}
+colnames(model_table)
+# remove 1st column X which is just index
+# 3:26 electricity usage
+# 27:29 fuel
+# 30:39 gas
+# 40:44 propane
+# 45 total energy usage
+```
+
+1. Let's see the total July energy usage for each building
+
+```{r Hang}
+model_table$electricity=apply(model_table[,3:26],1,sum)
+model_table$fuel=apply(model_table[,27:29],1,sum)
+model_table$gas=apply(model_table[,30:39],1,sum)
+model_table$propane=apply(model_table[,40:44],1,sum)
+energy_bldg=model_table%>%group_by(bldg_id)%>%
+  summarise(sum_energy=sum(total),
+            sum_electricity=sum(electricity),
+            sum_fuel=sum(fuel),
+            sum_gas=sum(gas),
+            sum_propane=sum(propane))
+# Obviously there are bldgs with negative energy usage
+# Here's the list of those bldgs 
+energy_bldg=energy_bldg[,-7]
+list_neg_energy=energy_bldg%>%filter(sum_energy<=0)
+# 16 building within 15 unique counties
+nrow(unique(energy_bldg$county))
+# the total is 46 counties
+house_energy=left_join(static_house_updated,energy_bldg,by='bldg_id')
+
+ggplot(energy_bldg)+geom_boxplot(aes(,sum_energy))+theme_bw()+
+  ylab('Total July energy usage / House')+
+  ggtitle('Total July Energy Usage Distribution')
+```
+
+Result: There are 16 buildings within 15 unique counties having negative total energy usage, I cannot understand their situation and suggest we exclude those bldgs. The list is shown in *list_neg_energy*
+
+2. Now hourly distribution of energy usage
+
+```{r}
+model_table$time=model_table$time%>%as_datetime(tz='EST')
+model_table$hour=hour(model_table$time)
+energy_hour=model_table%>%group_by(hour)%>%
+  summarise(sum_energy=sum(total),
+            sum_electricity=sum(electricity),
+            sum_fuel=sum(fuel),
+            sum_gas=sum(gas),
+            sum_propane=sum(propane),
+            avg_energy=mean(total),
+            avg_electricity=mean(electricity),
+            avg_fuel=mean(fuel),
+            avg_gas=mean(gas),
+            avg_propane=mean(propane))
+
+```
+
+Result: It semes there are no fuel and propane consumption for all the records in this model_table.
+
+
+3. plotting distribution of hourly usage records
+```{r Hang}
+ggplot(model_table%>%filter(total>0))+geom_boxplot(aes(hour,total,group=hour))
+```
+
+Result: There are many records that could be considered as outliers for every hour. There are hourly total of negative values, too, as seen in last chunk of code.
+
+
+
