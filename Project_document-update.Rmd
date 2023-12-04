@@ -10,21 +10,25 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # 1. Preprocessing static house dataset
 
-```{r}
+```{r Hang}
 # Step 0. library packages, setting working directory and load data
 # Library tidyverse
 library(tidyverse)
 # This package is used to read parquet files
 library(arrow)
 # Setting working directory, mute it and set it to your working file
-setwd("/Users/r.shahukaru/Desktop/IST 687/Project")
+  # Shahukaru:
+  # setwd("/Users/r.shahukaru/Desktop/IST 687/Project")
+  # Hang:
+  setwd("~/Documents/1 Learning in US/Semester files Fall 2023/IST 687 Intro to DS/IST687_Project")
 # Loading the processed static house table
-static_house_original=read_parquet('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/static_house_info.parquet')
+# Updated in December: this file will be read in later codes
+# static_house_original=read_parquet('https://intro-datascience.s3.us-east-2.amazonaws.com/SC-data/static_house_info.parquet')
 ```
 
 ## Step 1. Remove columns with only one unique value
 
-```{r}
+```{r Hang, eval=FALSE, echo=TRUE}
 house_exclude_list=c()
 for (i in c(1:ncol(static_house_original))) {
   if (length(unique(static_house_original[,i]))==1){
@@ -42,7 +46,7 @@ rm(house_exclude_list)
 
 ## Step 2. Remove redundant columns
 
-```{r}
+```{r Hang, eval=FALSE, echo=TRUE}
 library(stats)
 # Convert chracters in static_house into factors for correlation calculation
 house_factor <- static_house %>%
@@ -82,9 +86,8 @@ rm(cor_high,cor_mat,house_factor,house_num,redundant_col,flattenCorrMat)
 # save.image('static_house.RData')
 ```
 
-# Removing building Ids to balance the dataset- Aadit
-
-```{r}
+# Removing building Ids to balance the dataset
+```{r Aadit, eval=FALSE, echo=TRUE}
 # Work done by Aadit as on Nov 23
 #library(tidyverse)
 county_building_df= data.frame(
@@ -112,8 +115,7 @@ for (cty in counties) {
 view(county_building_df)
 ```
 
-```{r}
-
+```{r Aadit, eval=FALSE, echo=TRUE}
 num_useful_cols_count= c()
 for (bldg in county_building_df$bldg_id) {
    print(paste('ID: ',bldg))
@@ -132,7 +134,7 @@ county_building_df$useful_cols_in_bldg_count = num_useful_cols_count # adding a 
 view(county_building_df)
 ```
 
-```{r}
+```{r Aadit, eval=FALSE, echo=TRUE}
 reduced_bldg_per_county_df = data.frame(
   county = character(),
   bldg_id = integer(),
@@ -179,7 +181,7 @@ view(reduced_bldg_per_county_df) # we now have 3795 entries compared to 5710 ent
 
 # 2. Joining other resources
 
-```{r}
+```{r Hang, eval=FALSE, echo=TRUE}
 # Hang: This steps takes my whole afternoon, so I muted this block just in case you guys run it by accident
 # Update 00:50 10.29, I found time zone different for energy usage and weather data, would check it on morning 10.29 to proceed.
 # Update 10:52 10.29, model_table succefully created, None NAs in the dataset, check next block to get access to the data table.
@@ -218,7 +220,7 @@ a=1
 
 # 3. Data modeling
 
-```{r}
+```{r Hang, eval=FALSE, echo=TRUE}
 # work done by 10.29 in this block:
  load('static_house.RData')
  load('ProjectData_10.29.RData')
@@ -228,7 +230,7 @@ a=1
 
 # There are 4 DFs in the Rworkspace, model_table has the formed data ready for modeling, static_house  series DFs has the info for houses, see the preprocessing of house data part for detailed information.
 
-colnames(model_table)
+# colnames(model_table)
 # 1:building_id,2:time(hourly)
 # 3:45 energy usage (hourly)
 # 46: county
@@ -242,7 +244,7 @@ colnames(model_table)
 
 ## 3.1 Attribute selection
 
-```{r}
+```{r Hang, eval=FALSE, echo=TRUE}
 # Work done by Hang on Nov. 23: excluded some attributes in static_house_cleaned
 # There are too many attributes selected to run the model, while only a few of them really works, so we should first reduce some that are not so important.
 average_ecost=model_table[,c(1,45)]%>%group_by(bldg_id)%>%summarise(average_ecost=mean(total))
@@ -291,8 +293,11 @@ model_table=model_table[,-which(colnames(model_table) %in% attributes_excluded$c
 # Google Drive Link for ProjectData_11.23.RData:
 # https://drive.google.com/file/d/18fAyEGaNLvAqoVzfBql6Gvh1KVdepI_n/view?usp=sharing
 # On Nov 28th, Biswadip worked on the dataset after Aadit modified the dataset and shared the final csv file on google drive: "https://drive.google.com/file/d/1LnsriFUWdSw_rZK458_PJLmeq8arfjE-/view"
+```
 
 
+
+```{r Revanth, eval=FALSE, echo=TRUE}
 # Work done by Revanth as on Nov 28
 # I am naming the csv file that Biswadip provided as df.
 df_before_filtering <- read.csv("final_model2.csv")
@@ -311,7 +316,7 @@ write.csv(df, "df-for-ml-pipeline.csv", , col.names = TRUE, row.names = FALSE)
 
 ## 3.2 model building
 
-```{r}
+```{r Hang simply trying to create a linear model, eval=FALSE, echo=TRUE}
 library(caret)
 set.seed(222)
 trainlist=createDataPartition(y=model_table$total,p=0.6,list=FALSE)
