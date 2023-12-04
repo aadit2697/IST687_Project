@@ -1,8 +1,8 @@
 ## File created on 11/28/2023 by Revanth Shahukaru
 
-# 4. Machine Learning Pipeline - 
+# 4. Grouping the rows based on specific columns-
 
-### Work done by Revanth as on Nov 28th and Nov 29th.
+### Work done by Revanth as on December 3rd.
 
 ------------------------------------------------------------------------
 
@@ -25,9 +25,6 @@ df <- df[, !names(df) %in% "X"]
 
 # converting the data types of all the columns
 library(dplyr)
-
-# creating a duplicate dataframe
-df2 <- df
 
 # First, replacing the "YYYY-MM-DD" to "YYYY-MM-DD HH:MM:SS" so that we don't lose the rows (that don't have time) when we convert from char to datetime.
 df$time <- ifelse(nchar(df$time) == 10, paste(df$time, "00:00:00"), df$time)
@@ -62,6 +59,7 @@ df <- df %>%
       TRUE ~ "Night"
     )
   )
+
 # now, changing the column's dtype to factor
 df$in.range_spot_vent_hour <- as.factor(df$in.range_spot_vent_hour)
 
@@ -77,6 +75,7 @@ df <- df %>%
       TRUE ~ "Night"
     )
   )
+
 # now, changing the column's dtype to factor
 df$in.bathroom_spot_vent_hour <- as.factor(df$in.bathroom_spot_vent_hour)
 
@@ -89,12 +88,16 @@ df$in.geometry_stories <- as.factor(df$in.geometry_stories)
 df$in.sqft <- as.factor(df$in.sqft)
 
 
+
 # Saving the csv file
-write.csv(df, file = "final_df.csv")
+# write.csv(df, file = "final_df.csv")
 # google drive link for the file above - "https://drive.google.com/file/d/1tiMmBYsz83HFjyeCbjgkjaBxpGNVv9sW/view?usp=sharing"
+
+# Reading "final_df.csv" as df
+# df <- read.csv(file = "final_df.csv")
 ```
 
-### Grouping the Rows together 
+### Grouping the Rows together
 
 Right now, all the rows in the dataset are 24 parts of each day. So, for every day, there are 24 rows whose data is recorded hourly.
 
@@ -104,81 +107,136 @@ UPDATE: We are getting very less number of rows for the code chunk below. It wou
 So, I will pass the df dataframe as the final model dataset after transforming the data.
 
 ```{r}
-# colnames(df)
+# Tip: To comment multiple lines, select the lines you want to comment and
+# press cmd + shift + c
+
+
+# working on df's grouping part now.
+
+# library(dplyr)
+
+# total num of buildings = 3795
+# length(unique(df$bldg_id))
+
+# Define the columns to sum, mean, and find mode
+cols_to_sum <- c(
+  "out.electricity.ceiling_fan.energy_consumption",
+  "out.electricity.cooling_fans_pumps.energy_consumption",
+  "out.electricity.cooling.energy_consumption",
+  "out.electricity.freezer.energy_consumption",
+  "out.electricity.lighting_exterior.energy_consumption",
+  "out.electricity.lighting_garage.energy_consumption",
+  "out.electricity.lighting_interior.energy_consumption",
+  "out.electricity.mech_vent.energy_consumption",
+  "out.electricity.plug_loads.energy_consumption",
+  "out.electricity.refrigerator.energy_consumption",
+  "total"
+)
+
+cols_to_mean <- c(
+  "Dry.Bulb.Temperature...C.",
+  "Relative.Humidity....",
+  "Wind.Speed..m.s.",
+  "Wind.Direction..Deg."
+)
+
+dont_rm_bldg_id <- c("bldg_id")
+
+cols_to_mode <- setdiff(names(df), c(cols_to_sum, cols_to_mean, dont_rm_bldg_id))
+
+
+library(lubridate)
+df3 <- df %>%
+  # Create a new column for time period based on hours
+  mutate(
+    time_period = case_when(
+      hour(time) %in% 06:11 ~ "Morning",
+      hour(time) %in% 12:15 ~ "Afternoon",
+      hour(time) %in% 16:19 ~ "Evening",
+      hour(time) %in% c(20, 21, 22, 23, 00, 01, 02, 03, 04, 05) ~ "Night",
+      TRUE ~ NA_character_
+    ),
+    plain_date = as.Date(time)  # New column for plain date
+  ) %>%
+  
+  # Group by building id, plain_date, and time_period
+  group_by(bldg_id, plain_date, time_period) %>%
+  
+  # Aggregate columns based on their type
+  summarize(
+    # Select numerical columns to aggregate (sum)
+    across(
+      cols_to_sum,
+      list(
+        sum = ~ sum(.)
+      )
+    ),
+    # Select numerical columns to aggregate (mean)
+    across(
+      cols_to_mean,
+      list(
+        mean = ~ mean(.)
+      )
+    ),
+    # Select categorical columns to find mode
+    across(
+      c(cols_to_mode),
+      list(
+        mode = ~ as.character(names(which.max(table(.))))
+      )
+    ),
+    .groups = 'drop'
+  )
+
+# removing unwanted columns from df3
+df3 <- subset(df3, select = -c(time_mode) )
+
+write.csv(df3, file = "grouped-rows-dataset.csv")
 ```
 
 ```{r}
-# # Tip: To comment multiple lines, select the lines you want to comment and
-# # press cmd + shift + c
-# 
-# library(dplyr)
-# 
-# # Define the columns to sum, mean, and find mode
-# cols_to_sum <- c(
-#   "out.electricity.ceiling_fan.energy_consumption",
-#   "out.electricity.cooling_fans_pumps.energy_consumption",
-#   "out.electricity.cooling.energy_consumption",
-#   "out.electricity.freezer.energy_consumption",
-#   "out.electricity.lighting_exterior.energy_consumption",
-#   "out.electricity.lighting_garage.energy_consumption",
-#   "out.electricity.lighting_interior.energy_consumption",
-#   "out.electricity.mech_vent.energy_consumption",
-#   "out.electricity.plug_loads.energy_consumption",
-#   "out.electricity.refrigerator.energy_consumption",
-#   "total"
-# )
-# 
-# cols_to_mean <- c(
-#   "Dry.Bulb.Temperature...C.",
-#   "Relative.Humidity....",
-#   "Wind.Speed..m.s.",
-#   "Wind.Direction..Deg."
-# )
-# 
-# cols_to_mode <- setdiff(names(df), c(cols_to_sum, cols_to_mean))
-# 
-# # Use the columns in the summarize function
-# df3 <- df %>%
-#   # Create a new column for time period based on hours
-#   mutate(
-#     time_period = case_when(
-#       hour(time) %in% 6:11 ~ "Morning",
-#       hour(time) %in% 12:15 ~ "Afternoon",
-#       hour(time) %in% 16:19 ~ "Evening",
-#       hour(time) %in% c(20, 21, 22, 23, 0, 1, 2, 3, 4, 5) ~ "Night",
-#       TRUE ~ NA_character_
-#     ),
-#     plain_date = as.Date(time)  # New column for plain date
-#   ) %>%
-#   # Group by plain date, time period
-#   group_by(plain_date, time_period) %>%
-#   # Aggregate columns based on their type
-#   summarize(
-#     # Select numerical columns to aggregate (sum)
-#     across(
-#       cols_to_sum,
-#       list(
-#         sum = ~ sum(.)
-#       )
-#     ),
-#     # Select numerical columns to aggregate (mean)
-#     across(
-#       cols_to_mean,
-#       list(
-#         mean = ~ mean(.)
-#       )
-#     ),
-#     # Select categorical columns to find mode
-#     across(
-#       # Add other categorical columns here
-#       cols_to_mode,
-#       list(
-#         mode = ~ as.character(which.max(table(.)))
-#       )
-#     ),
-#     .groups = 'drop'
-#   )
+colnames(df3)
+```
 
+### Working on a subset of df to get quicker ouptputs (This code will later be replicated on the df dataframe)
+
+```{r}
+
+df4 <- df3 %>%
+  slice(1:1000)
+```
+
+## Data Cleaning - Log Tranformation
+
+```{r}
+
+# checking for null values in df5
+sum(is.na(df5)) # no null values
+
+# checking for outliers
+boxplot(df5$out., main = "Boxplot of Ceiling Fan", ylab = "Ceiling Fan")
+# No major outliers found
+
+df$total <- sum()
+# Assuming df is your data frame and you want to sum columns 1 to 9
+sum_column <- rowSums(df5[, 4:12], na.rm = TRUE)
+sum_column
+
+in.hvac_cooling_efficiency
+
+# Using regex to clean some of the categorical columns
+```
+
+### Cleaning the categorical columns using regex
+
+```{r}
+text <- "Fuel Furnace, 92.5% AFUE"
+number <- as.numeric(str_extract(text, "\\b\\d+\\.?\\d*\\b"))
+number
+```
+
+```{r}
+colnames(df)
 ```
 
 Since there are a lot of columns and a lot of levels in many of the categorical columns on top of that, we will end up with a lot of columns once we perform One Hot Encoding and Label Encoding to convert the categorical columns to numerical columns. So, this is the final time for us to think about reducing the number of dimensions as much as possible so that the model can perform better with comparitively lesser columns.
@@ -210,6 +268,8 @@ test_data <- df[-split_index, ]
 ## 4.3. Data Transformation
 
 ```{r}
+
+save.image("ml-pipeline.RData")
 
 # Revanth's further plan-
 
