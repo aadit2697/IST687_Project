@@ -297,5 +297,35 @@ test_data <- df[-split_index, ]
 # Other team members can work from below
 
 ```{r}
+load('ml-pipeline.RData')
+rm(df_before_filtering,df3,df4,low_variance_filter,split_index,train_data,test_data,cols_to_mean,cols_to_mode,cols_to_sum,dont_rm_bldg_id,target_variable)
+library(lubridate)
+library(tidyverse)
+library(randomForest)
+colnames(df)
+# bldg-id, county and all 'out.' should not be used for a general predicting model
+model_table=df
+rm(df)
+model_table$hour=hour(model_table$time)
+model_table=model_table[,c(13,15:87)]
+colnames(model_table)
+model_table=model_table%>%filter(total>0)
+# Train-Test Split
+library(caret)
+set.seed(123)  # for reproducibility
+split_index <- createDataPartition(model_table[,1], p = 0.8, list = FALSE)
+train_data <- model_table[split_index, ]
+test_data <- model_table[-split_index, ]
+rm(split_index)
+rm(model_table)
+# Random forest regression
+rf_energy <- randomForest(total ~ ., 
+                         data = train_data,
+                         importance = TRUE,
+                         ntree=400,
+                         keep.forest=TRUE)
 
+#Model evaluation
+print(rf_energy)
+plot(rf_energy)
 ```
