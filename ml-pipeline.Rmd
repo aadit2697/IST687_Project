@@ -323,8 +323,8 @@ library(lubridate)
 library(tidyverse)
 library(randomForest)
 library(caret)
-# library(usethis) 
-# usethis::edit_r_environ()
+library(usethis)
+usethis::edit_r_environ()
 
 # Exclude columns that only have 1 unique value now
 model_exclude_list=c()
