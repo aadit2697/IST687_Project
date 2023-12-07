@@ -351,50 +351,6 @@ print(paste("R-Squared: ", rsquared))
 
 ## Model #2 - LASSO Regression
 
-```{r}
-
-# For Model #2, we are using 95% of the dataset to train the model because we have a huge dataset and we can use it to our advantage
-
-# Load necessary library for train-test split
-library(caTools)
-
-# Set the seed for reproducibility
-set.seed(123)
-
-# Identify target columns
-
-sum(is.na(model_df))
-# Perform train-test split (stratified)
-target_column = "total_sum"
-split <- sample.split(model_df[, target_column], SplitRatio = 0.90)
-
-# Create training and testing sets
-train_df <- subset(model_df, split == TRUE)
-test_df <- subset(model_df, split == FALSE)
-
-sum(is.na(train_df))
-sum(is.na(train_df))
-```
-
-## Transforming
-
-```{r}
-# Extract numerical columns for normalization
-numerical_columns <- sapply(train_df, is.numeric)
-
-# Apply Z-score normalization to numerical columns in the training set
-train_df[, numerical_columns] <- scale(train_df[, numerical_columns])
-
-# Apply the same normalization to numerical columns in the testing set
-test_df[, numerical_columns] <- scale(test_df[, numerical_columns])
-
-# Display the dimensions of the training and testing sets
-print("Dimensions of the training set:")
-print(dim(train_df))
-print("Dimensions of the testing set:")
-print(dim(test_df))
-```
-
 ## Model Building
 
 ```{r}
@@ -432,50 +388,6 @@ print(paste("R-Squared: ", rsquared))
 
 ## Model #3 - Ridge Regression
 
-```{r}
-
-# For Model #2, we are using 95% of the dataset to train the model because we have a huge dataset and we can use it to our advantage
-
-# Load necessary library for train-test split
-library(caTools)
-
-# Set the seed for reproducibility
-set.seed(123)
-
-# Identify target columns
-
-sum(is.na(model_df))
-# Perform train-test split (stratified)
-target_column = "total_sum"
-split <- sample.split(model_df[, target_column], SplitRatio = 0.90)
-
-# Create training and testing sets
-train_df <- subset(model_df, split == TRUE)
-test_df <- subset(model_df, split == FALSE)
-
-sum(is.na(train_df))
-sum(is.na(train_df))
-```
-
-## Transforming
-
-```{r}
-# Extract numerical columns for normalization
-numerical_columns <- sapply(train_df, is.numeric)
-
-# Apply Z-score normalization to numerical columns in the training set
-train_df[, numerical_columns] <- scale(train_df[, numerical_columns])
-
-# Apply the same normalization to numerical columns in the testing set
-test_df[, numerical_columns] <- scale(test_df[, numerical_columns])
-
-# Display the dimensions of the training and testing sets
-print("Dimensions of the training set:")
-print(dim(train_df))
-print("Dimensions of the testing set:")
-print(dim(test_df))
-```
-
 ## Model Building
 
 ```{r}
@@ -510,6 +422,41 @@ library(caret)
 # Calculate R-squared
 rsquared <- R2(predictions, test_df$total_sum)
 print(paste("R-Squared: ", rsquared))
+```
+
+## Model #4 - Elastic Net
+
+## Model Building
+
+```{r}
+
+library(glmnet)
+library(caret)
+
+# Assuming train_df and test_df are your training and test datasets
+
+# Build an elastic net regression model
+elastic_net_model <- cv.glmnet(as.matrix(train_df[, -45]), train_df$total_sum, alpha = 0.5)
+
+# Make predictions on the test set
+predictions_elastic_net <- predict(elastic_net_model, newx = as.matrix(test_df[, -45]), s = "lambda.min")
+
+# Check if predictions have null values
+any(is.na(predictions_elastic_net))
+
+# Evaluate the model performance
+rmse_elastic_net <- sqrt(mean((predictions_elastic_net - test_df$total_sum)^2))
+print(paste("Root Mean Squared Error (Elastic Net): ", rmse_elastic_net))
+
+# MAE
+mae_elastic_net <- mean(abs(predictions_elastic_net - test_df$total_sum), na.rm = TRUE)
+print(paste("Mean Absolute Error (Elastic Net): ", mae_elastic_net))
+
+# R^2
+# Calculate R-squared
+rsquared_elastic_net <- R2(predictions_elastic_net, test_df$total_sum)
+print(paste("R-Squared (Elastic Net): ", rsquared_elastic_net))
+
 ```
 
 ```{r}
