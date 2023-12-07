@@ -69,9 +69,9 @@ df$in.range_spot_vent_hour <- as.factor(df$in.range_spot_vent_hour)
 df <- df %>%
   mutate(
     in.bathroom_spot_vent_hour = case_when(
-      between(as.integer(gsub("Hour", "", in.bathroom_spot_vent_hour)), 6, 11) ~ "Morning",
-      between(as.integer(gsub("Hour", "", in.bathroom_spot_vent_hour)), 12, 15) ~ "Afternoon",
-      between(as.integer(gsub("Hour", "", in.bathroom_spot_vent_hour)), 16, 19) ~ "Evening",
+      between(as.integer(gsub("Hour", "", in.range_spot_vent_hour)), 6, 11) ~ "Morning",
+      between(as.integer(gsub("Hour", "", in.range_spot_vent_hour)), 12, 15) ~ "Afternoon",
+      between(as.integer(gsub("Hour", "", in.range_spot_vent_hour)), 16, 19) ~ "Evening",
       TRUE ~ "Night"
     )
   )
@@ -236,7 +236,7 @@ number
 ```
 
 ```{r}
-colnames(df)
+colnames(df3)
 ```
 
 Since there are a lot of columns and a lot of levels in many of the categorical columns on top of that, we will end up with a lot of columns once we perform One Hot Encoding and Label Encoding to convert the categorical columns to numerical columns. So, this is the final time for us to think about reducing the number of dimensions as much as possible so that the model can perform better with comparitively lesser columns.
@@ -309,7 +309,7 @@ test_data <- df[-split_index, ]
 # model_table=model_table%>%filter(total>0)
 
 
-load('temp.RData')
+# load('temp.RData')
 # In this work space, model_table is another copy of 'df' while goes through process shown above:
 # only hour is kept for time, county, bldg_id and those starts with 'out' are removed.
 # All the records having a total < 0 are removed seen as bad values
@@ -323,8 +323,8 @@ library(lubridate)
 library(tidyverse)
 library(randomForest)
 library(caret)
-library(usethis)
-usethis::edit_r_environ()
+# library(usethis) 
+# usethis::edit_r_environ()
 
 # Exclude columns that only have 1 unique value now
 model_exclude_list=c()
@@ -414,4 +414,26 @@ RMSE
 # plot(rf_energy)
 
 
+```
+
+## Revanth's work - Data Transformation
+
+```{r}
+# let us remove unwanted variables
+# rm(df_before_filtering)
+# rm(df4)
+# rm(low_variance_filter)
+# rm(model_table)
+# rm(split_index)
+# rm(train_data)
+# rm(test_data)
+# rm(target_variable)
+# rm(cols_to_sum)
+# rm(cols_to_mean)
+# rm(cols_to_mode)
+# rm(dont_rm_bldg_id)
+# rm(model_exclude_list)
+# After this, only df and df3 should be present in the environment
+
+# The next part of this is continued in the final-ml-pipeline.Rmd file
 ```
