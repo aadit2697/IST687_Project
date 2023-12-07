@@ -1,0 +1,513 @@
+# Revanth's work - Cleaning
+
+```{r}
+# First, Uncomment the below two lines of code
+df3 <- read.csv("~/Desktop/IST 687/Project/grouped-rows-dataset.csv", stringsAsFactors=TRUE)
+# then, remove the first unwanted column X
+df3 = df3[, -1]
+
+# removing columns that won't be needed to build the model
+rm_these_columns <- c(
+  "bldg_id",
+  "county_mode",
+  "plain_date",
+  "Wind.Direction..Deg._mean",
+  "in.bathroom_spot_vent_hour_mode",
+  "in.city_mode",
+  "in.dishwasher_mode",
+  "in.ducts_mode",
+  "in.federal_poverty_level_mode",
+  "in.geometry_floor_area_mode",
+  "in.geometry_garage_mode",
+  "in.geometry_stories_mode",
+  "in.geometry_wall_exterior_finish_mode",
+  "in.geometry_wall_type_mode",
+  "in.hvac_cooling_efficiency_mode",
+  "in.hvac_has_zonal_electric_heating_mode",
+  "in.hvac_heating_efficiency_mode",
+  "in.income_mode",
+  "in.income_recs_2015_mode",
+  "in.income_recs_2020_mode",
+  "in.insulation_ceiling_mode",
+  "in.insulation_floor_mode",
+  "in.insulation_wall_mode",
+  "in.insulation_foundation_wall_mode",
+  "in.insulation_slab_mode",
+  "in.misc_extra_refrigerator_mode",
+  "in.orientation_mode",
+  "in.range_spot_vent_hour_mode",
+  "in.reeds_balancing_area_mode",
+  "in.roof_material_mode",
+  "in.tenure_mode",
+  "in.vintage_mode",
+  "in.water_heater_efficiency_mode",
+  "in.weather_file_city_mode",
+  "in.windows_mode",
+  "upgrade.hvac_heating_type_mode",
+  "in.weather_file_longitude_mode",
+  "in.weather_file_latitude_mode"
+)
+
+# Removing the above columns from df3
+df3 <- df3[, !names(df3) %in% rm_these_columns]
+
+# 1.
+# the below code can be used to transform the 62F, 70F values to numerical using regex
+levels(df3$in.cooling_setpoint_mode)
+
+# Extracting numeric part from the in.cooling_setpoint_mode column
+df3$in.cooling_setpoint_mode <- as.numeric(gsub("[^0-9]", "", df3$in.cooling_setpoint_mode))
+
+# 2. 
+levels(df3$in.cooling_setpoint_offset_magnitude_mode)
+
+# Extracting numeric part from the in.cooling_setpoint_offset_magnitude_mode column
+df3$in.cooling_setpoint_offset_magnitude_mode <- as.numeric(gsub("[^0-9]", "", df3$in.cooling_setpoint_offset_magnitude_mode))
+
+# 3.
+levels(df3$in.clothes_dryer_mode)
+# Electric, 100% Usage
+# Electric, 120% Usage
+# Electric, 80% Usage  
+# Gas, 100% Usage
+
+# We can extract the text from this column and add a new column that says clothes_dryer_type which can be a column that has the values such as Electric, gas, Propane, etc.
+# And another column can be clothes_dryer_usage that has the numerical value from the levels from the in.clothes_dryer_mode column. 
+
+# Extract clothes_dryer_type
+df3$in.clothes_dryer_type <- factor(sub(",.*", "", df3$in.clothes_dryer_mode))
+
+# Replacing "None" string with null values
+df3$in.clothes_dryer_type[df3$in.clothes_dryer_type == "None"] <- NA
+
+# Extract clothes_dryer_usage
+df3$in.clothes_dryer_usage <- as.numeric(gsub("\\D", "", df3$in.clothes_dryer_mode))
+
+# we can remove the null values
+df3 <- na.omit(df3)
+
+# sorting df3 based on column names
+df3 <- df3[, order(names(df3))]
+
+colnames(df3)
+
+# removing "in.clothes_dryer_mode" column
+df3 = df3[, -5]
+
+
+
+# 3.1.
+levels(df3$in.clothes_washer_mode)
+
+# Extract clothes_washer_type
+df3$in.clothes_washer_type <- factor(sub(",.*", "", df3$in.clothes_washer_mode))
+
+# Replacing "None" string with null values
+df3$in.clothes_washer_type[df3$in.clothes_washer_type == "None"] <- NA
+
+# Extract clothes_washer_usage
+df3$in.clothes_washer_usage <- as.numeric(gsub("\\D", "", df3$in.clothes_washer_mode))
+
+# we can remove the null values
+df3 <- na.omit(df3)
+
+# sorting df3 based on column names
+df3 <- df3[, order(names(df3))]
+
+colnames(df3)
+
+# removing "in.clothes_washer_mode" column
+df3 = df3[, -7]
+
+# 3.2.
+
+levels(df3$in.cooking_range_mode)
+# Electric, 100% Usage
+# Electric, 120% Usage
+# Electric, 80% Usage  
+# Gas, 100% Usage
+
+# We can extract the text from this column and add a new column that says cooking_range_type which can be a column that has the values such as Electric, gas, Propane, etc.
+# And another column can be cooking_range_usage that has the numerical value from the levels from the in.cooking_range_mode column. 
+
+# Extract cooking_range_type
+df3$in.cooking_range_type <- factor(sub(",.*", "", df3$in.cooking_range_mode))
+
+# Replacing "None" string with null values
+df3$in.cooking_range_type[df3$in.cooking_range_type == "None"] <- NA
+
+# Extract cooking_range_usage
+df3$in.cooking_range_usage <- as.numeric(gsub("\\D", "", df3$in.cooking_range_mode))
+
+# we can remove the null values
+df3 <- na.omit(df3)
+
+# sorting df3 based on column names
+df3 <- df3[, order(names(df3))]
+
+colnames(df3)
+
+# removing "in.cooking_range_mode" column
+df3 = df3[, -9]
+
+
+# 4. 
+levels(df3$in.heating_setpoint_mode)
+
+# Extracting numeric part from the in.heating_setpoint_mode column
+df3$in.heating_setpoint_mode <- as.numeric(gsub("[^0-9]", "", df3$in.heating_setpoint_mode))
+
+# 5. 
+
+# Extracting numeric part from the in.heating_setpoint_offset_magnitude_mode column
+df3$in.heating_setpoint_offset_magnitude_mode <- as.numeric(gsub("[^0-9]", "", df3$in.heating_setpoint_offset_magnitude_mode))
+
+# 6. 
+levels(df3$in.hot_water_fixtures_mode)
+
+# Extracting numeric part from the in.hot_water_fixtures_mode column
+df3$in.hot_water_fixtures_mode <- as.numeric(gsub("[^0-9]", "", df3$in.hot_water_fixtures_mode))
+
+# checking for null values
+sum(is.na(df3$in.hot_water_fixtures_mode))
+
+# 7. 
+levels(df3$in.hvac_cooling_partial_space_conditioning_mode)
+
+# Extracting numeric part from the in.hvac_cooling_partial_space_conditioning_mode column
+df3$in.hvac_cooling_partial_space_conditioning_mode <- as.numeric(gsub("[^0-9]", "", df3$in.hvac_cooling_partial_space_conditioning_mode))
+
+# checking for null values in in.hvac_cooling_partial_space_conditioning_mode column
+sum(is.na(df3$in.hvac_cooling_partial_space_conditioning_mode))
+
+# checking for null values for the whole df3
+sum(is.na(df3)) # 10292
+
+# Since 10,292 null values in a dataset of 470K observations isn't significant, we can drop the null values.
+
+# Remove rows with NA values from df3
+df3 <- na.omit(df3)
+
+# 8. 
+levels(df3$in.infiltration_mode)
+
+# Extract numbers before the space in "1 ACH50", etc., using regex
+df3$in.infiltration_mode <- as.numeric(gsub("^([0-9]+)\\s.*", "\\1", df3$in.infiltration_mode))
+
+# 9.
+table(df3$in.insulation_rim_joist_mode)
+# Too many null values. So, we can drop this column
+
+colnames(df3)
+
+df3 = df3[, -21]
+
+# 10. 
+table(df3$in.lighting_mode)
+
+# Extract text using regex
+df3$in.lighting_mode <- factor(sub("^100%\\s(.*)", "\\1", df3$in.lighting_mode))
+
+# 11. 
+# Removing "upgrade.ducts_mode", 
+# "upgrade.infiltration_reduction_mode",
+# "upgrade.insulation_ceiling_mode",
+# "upgrade.insulation_wall_mode" because only one true level the other level is null values
+
+df3 <- df3[, !(names(df3) %in% c(
+  "upgrade.ducts_mode",
+  "upgrade.infiltration_reduction_mode",
+  "upgrade.insulation_ceiling_mode",
+  "upgrade.insulation_wall_mode"
+))]
+
+# 12. 
+# Replace "10+" with 10 in in.occupants_mode
+df3$in.occupants_mode[df3$in.occupants_mode == "10+"] <- 10
+
+# Remove rows with NA values from df3
+df3 <- na.omit(df3)
+
+# Convert the column to numeric
+df3$in.occupants_mode <- as.numeric(df3$in.occupants_mode)
+```
+
+# MODEL BUILDING - Model #1
+
+## Creating model_df and saving it to model_df.csv
+
+```{r}
+model_df = df3
+
+# Remove rows with any missing values in model_df
+model_df <- na.omit(model_df)
+
+# write.csv(model_df, "model_df.csv")
+```
+
+## 1. TRAIN-TEST Split
+
+```{r}
+# It's generally recommended to perform normalization or standardization after splitting your data into training and testing sets. 
+# This helps prevent information leakage from the test set to the training set, as the normalization parameters (e.g., mean and standard deviation for Z-score normalization) should be calculated only on the training set.
+
+
+# Load necessary library for train-test split
+library(caTools)
+
+# Set the seed for reproducibility
+set.seed(123)
+
+# Identify target columns
+
+sum(is.na(model_df))
+# Perform train-test split (stratified)
+split <- sample.split(model_df[, "total_sum"], SplitRatio = 0.9)
+
+# Create training and testing sets
+train_df <- subset(model_df, split == TRUE)
+test_df <- subset(model_df, split == FALSE)
+
+sum(is.na(train_df))
+sum(is.na(train_df))
+```
+
+## Transforming Numerical Columns using Z-Score Normalization
+
+```{r}
+# In this analysis, we employ Z-score normalization on the numerical columns of the dataset. Z-score normalization is a statistical technique that standardizes the values by transforming them to a distribution with a mean of 0 and a standard deviation of 1. This normalization method is chosen for its ability to make the data comparable across different scales, facilitating the interpretation of the relative importance of each variable in subsequent analyses.
+
+# Moreover, Z-score normalization is robust in the presence of outliers, as it is less influenced by extreme values compared to other normalization techniques. By standardizing the variables in this manner, we aim to mitigate the impact of outliers and ensure that each numerical feature contributes meaningfully to the analysis without being disproportionately influenced by the scale of its values. The standardized values obtained through Z-score normalization aid in creating a more interpretable and consistent representation of the data, fostering a more reliable foundation for subsequent statistical analyses and modeling efforts.
+
+# Extract numerical columns for normalization
+numerical_columns <- sapply(train_df, is.numeric)
+
+# Apply Z-score normalization to numerical columns in the training set
+train_df[, numerical_columns] <- scale(train_df[, numerical_columns])
+
+# Apply the same normalization to numerical columns in the testing set
+test_df[, numerical_columns] <- scale(test_df[, numerical_columns])
+
+# Display the dimensions of the training and testing sets
+print("Dimensions of the training set:")
+print(dim(train_df))
+print("Dimensions of the testing set:")
+print(dim(test_df))
+```
+
+## Label Encoding - Transforming required categorical columns
+
+```{r}
+
+# str(model_df)
+# 
+# library(fastDummies)
+# 
+# label_encode_cols <- c("in.usage_level_mode")
+# 
+# # Manually assign labels for in.usage_level_mode
+# usage_level_labels <- c("Low", "Medium", "High")
+# 
+# train_df$in.usage_level_mode <- factor(train_df$in.usage_level_mode, levels = usage_level_labels)
+# test_df$in.usage_level_mode <- factor(test_df$in.usage_level_mode, levels = usage_level_labels)
+```
+
+## Model Building
+
+```{r}
+
+# Build a linear regression model
+lm_model <- lm(total_sum ~ ., data = train_df)
+
+# Make predictions on the test set
+predictions <- predict(lm_model, newdata = test_df)
+
+# check if predictions has null values
+any(is.na(predictions))
+valid_rows <- !is.na(predictions)
+
+
+# Evaluate the model performance
+rmse <- sqrt(mean((predictions - test_df$total_sum)^2))
+print(paste("Root Mean Squared Error: ", rmse))
+
+# MAE
+mae <- mean(abs(predictions - test_df$total_sum), na.rm = TRUE)
+print(paste("Mean Absolute Error: ", mae))
+
+# R^2
+rsquared <- summary(lm_model)$r.squared
+print(paste("R-Squared: ", rsquared))
+
+
+# summary(lm_model)
+```
+
+```{r}
+# any(is.na(train_df))
+# sum(is.na(train_df))
+# sum(is.na(test_df))
+```
+
+## Model #2 - LASSO Regression
+
+```{r}
+
+# For Model #2, we are using 95% of the dataset to train the model because we have a huge dataset and we can use it to our advantage
+
+# Load necessary library for train-test split
+library(caTools)
+
+# Set the seed for reproducibility
+set.seed(123)
+
+# Identify target columns
+
+sum(is.na(model_df))
+# Perform train-test split (stratified)
+target_column = "total_sum"
+split <- sample.split(model_df[, target_column], SplitRatio = 0.90)
+
+# Create training and testing sets
+train_df <- subset(model_df, split == TRUE)
+test_df <- subset(model_df, split == FALSE)
+
+sum(is.na(train_df))
+sum(is.na(train_df))
+```
+
+## Transforming
+
+```{r}
+# Extract numerical columns for normalization
+numerical_columns <- sapply(train_df, is.numeric)
+
+# Apply Z-score normalization to numerical columns in the training set
+train_df[, numerical_columns] <- scale(train_df[, numerical_columns])
+
+# Apply the same normalization to numerical columns in the testing set
+test_df[, numerical_columns] <- scale(test_df[, numerical_columns])
+
+# Display the dimensions of the training and testing sets
+print("Dimensions of the training set:")
+print(dim(train_df))
+print("Dimensions of the testing set:")
+print(dim(test_df))
+```
+
+## Model Building
+
+```{r}
+
+library(glmnet)
+
+colnames(train_df)
+
+# Build a LASSO regression model
+lasso_model <- cv.glmnet(as.matrix(train_df[, -45]), train_df$total_sum, alpha = 1)
+
+# Make predictions on the test set
+predictions <- predict(lasso_model, newx = as.matrix(test_df[, -45]), s = "lambda.min")
+
+
+# check if predictions has null values
+any(is.na(predictions))
+# valid_rows <- !is.na(predictions) # Use this if there are any null values
+
+
+# Evaluate the model performance
+rmse <- sqrt(mean((predictions - test_df$total_sum)^2))
+print(paste("Root Mean Squared Error: ", rmse))
+
+# MAE
+mae <- mean(abs(predictions - test_df$total_sum), na.rm = TRUE)
+print(paste("Mean Absolute Error: ", mae))
+
+library(caret)
+# R^2
+# Calculate R-squared
+rsquared <- R2(predictions, test_df$total_sum)
+print(paste("R-Squared: ", rsquared))
+```
+
+## Model #3 - Ridge Regression
+
+```{r}
+
+# For Model #2, we are using 95% of the dataset to train the model because we have a huge dataset and we can use it to our advantage
+
+# Load necessary library for train-test split
+library(caTools)
+
+# Set the seed for reproducibility
+set.seed(123)
+
+# Identify target columns
+
+sum(is.na(model_df))
+# Perform train-test split (stratified)
+target_column = "total_sum"
+split <- sample.split(model_df[, target_column], SplitRatio = 0.90)
+
+# Create training and testing sets
+train_df <- subset(model_df, split == TRUE)
+test_df <- subset(model_df, split == FALSE)
+
+sum(is.na(train_df))
+sum(is.na(train_df))
+```
+
+## Transforming
+
+```{r}
+# Extract numerical columns for normalization
+numerical_columns <- sapply(train_df, is.numeric)
+
+# Apply Z-score normalization to numerical columns in the training set
+train_df[, numerical_columns] <- scale(train_df[, numerical_columns])
+
+# Apply the same normalization to numerical columns in the testing set
+test_df[, numerical_columns] <- scale(test_df[, numerical_columns])
+
+# Display the dimensions of the training and testing sets
+print("Dimensions of the training set:")
+print(dim(train_df))
+print("Dimensions of the testing set:")
+print(dim(test_df))
+```
+
+## Model Building
+
+```{r}
+
+library(glmnet)
+
+colnames(train_df)
+
+# Build a ridge regression model
+ridge_model <- cv.glmnet(as.matrix(train_df[, -45]), train_df$total_sum, alpha = 0)
+
+
+# Make predictions on the test set
+predictions <- predict(ridge_model, newx = as.matrix(test_df[, -45]), s = "lambda.min")
+
+
+# check if predictions has null values
+any(is.na(predictions))
+# valid_rows <- !is.na(predictions) # Use this if there are any null values
+
+
+# Evaluate the model performance
+rmse <- sqrt(mean((predictions - test_df$total_sum)^2))
+print(paste("Root Mean Squared Error: ", rmse))
+
+# MAE
+mae <- mean(abs(predictions - test_df$total_sum), na.rm = TRUE)
+print(paste("Mean Absolute Error: ", mae))
+
+library(caret)
+# R^2
+# Calculate R-squared
+rsquared <- R2(predictions, test_df$total_sum)
+print(paste("R-Squared: ", rsquared))
+```
