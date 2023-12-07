@@ -511,3 +511,9 @@ library(caret)
 rsquared <- R2(predictions, test_df$total_sum)
 print(paste("R-Squared: ", rsquared))
 ```
+
+```{r}
+# Saving data
+save.image("final-ml-pipeline.RData")
+# Gdrive link - "https://drive.google.com/file/d/15DLflN93TphA2Vr4uCqGRIifUsqFIIjo/view?usp=share_link"
+```
