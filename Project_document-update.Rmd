@@ -314,7 +314,7 @@ write.csv(df, "df-for-ml-pipeline.csv", , col.names = TRUE, row.names = FALSE)
 # As of now, df is the final dataset that's going to be used in a new Rmd file so that we can work on the Machine Learning Pipeline.
 ```
 
-## 3.2 model building
+## 3.2 model building (temporary version)
 
 ```{r Hang simply trying to create a linear model, eval=FALSE, echo=TRUE}
 library(caret)
