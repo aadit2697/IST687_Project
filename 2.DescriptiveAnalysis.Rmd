@@ -1,6 +1,5 @@
 ---
 title: "Project_descriptive_analysis"
-author: "Hag"
 date: "2023-12-04"
 output: html_document
 ---
@@ -74,7 +73,7 @@ Result: There are 16 buildings within 15 unique counties having negative total e
 
 2. Now hourly distribution of energy usage
 
-```{r}
+```{r Abhishek}
 model_table$time=model_table$time%>%as_datetime(tz='EST')
 model_table$hour=hour(model_table$time)
 energy_hour=model_table%>%group_by(hour)%>%
@@ -102,7 +101,7 @@ ggplot(model_table%>%filter(total>0))+geom_boxplot(aes(hour,total,group=hour))
 Result: There are many records that could be considered as outliers for every hour. There are hourly total of negative values, too, as seen in last chunk of code.
 
 4.Total Energy Consumption in July (Abhishek)
-```{r}
+```{r Abhishek}
 model_data <- load('descriptive.RData')
 library(ggplot2)
 library(lubridate)
@@ -121,8 +120,7 @@ ggplot(july_data, aes(x = time, y = total)) +
 ```
 
 4.Comparision of energy sources
-```
-{r}
+```{r Abhishek}
 library(ggplot2)
 library(reshape2)
 long_data <- melt(model_table, measure.vars = c("electricity", "fuel", "gas", "propane"))
@@ -133,8 +131,7 @@ ggplot(long_data, aes(x = variable, y = value, fill = variable)) +
   theme_minimal()
 ```
 5.Energy Consumption by County
-```
-{r}
+```{r Abhishek}
 # Load necessary libraries
 library(dplyr)
 library(ggplot2)
@@ -156,7 +153,7 @@ ggplot(long_data, aes(x = county, y = value, fill = variable)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 8)) # Rotate and adjust the size
 ```
 5.Energy consumption by appliances
-```{r}
+```{r Abhishek}
 # Load necessary libraries
 library(dplyr)
 library(ggplot2)
@@ -199,5 +196,5 @@ ggplot(appliance_sums, aes(x = reorder(Appliance, -Consumption), y = Consumption
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
   guides(fill=FALSE)
 ```
-6.
+
 
