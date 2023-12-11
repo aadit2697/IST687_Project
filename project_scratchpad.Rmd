@@ -1,0 +1,173 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-12-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+lim <- lm(df3.total_sum ~ df3.plain_date + df3.time_period +
+          df3.Dry.Bulb.Temperature...C._mean + df3.Wind.Speed..m.s._mean +
+          df3.in.sqft_mode + df3.in.bedrooms_mode + df3.in.geometry_garage_mode +
+          df3.in.geometry_stories_mode + df3.in.occupants_mode+county, data = shiny_data)
+summary(lim)
+str(shiny_data)
+```
+
+```{r}
+library(ggplot2)
+library(maps)
+
+# Load the map data for South Carolina
+sc_map <- map_data("state", region = "south carolina")
+
+# Create a ggplot object for South Carolina
+sc_plot <- ggplot() +
+  geom_polygon(data = sc_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  theme_void()
+
+# Plot the points on the South Carolina map
+sc_plot +
+  geom_point(data = grouped_rows_dataset,
+             aes(in.weather_file_longitude_mode, in.weather_file_latitude_mode, color = total_sum,size=100)) +
+  geom_text(data= grouped_rows_dataset,aes(label = in.weather_file_city_mode,x=  in.weather_file_longitude_mode, y= in.weather_file_latitude_mode,), vjust = -0.5, angle= 45)+
+  labs(title = "Energy Usage in South Carolina") +
+  scale_color_gradient(low = "green", high = "red") 
+
+```
+
+```{r}
+library(maps)
+library(ggplot2)
+
+# Get the boundaries of South Carolina
+sc_bounds <- map_data("state", region = "south carolina")
+
+# Get the boundaries of South Carolina counties
+county_bounds <- map_data("county", region = "south carolina")
+county_bounds
+# Plot the map of South Carolina with county boundaries
+ggplot() +
+  geom_polygon(data = sc_bounds, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  geom_polygon(data = county_bounds, aes(x = long, y = lat, group = group), fill = NA, color = "blue") +
+  theme_minimal()
+```
+
+
+```{r}
+str(df_before_filtering)
+df_before_filtering$time <- as.POSIXct(df_before_filtering$time, format = "%Y-%m-%d %H:%M:%S")
+str(lim)
+```
+
+```{r}
+
+
+```
+
+```{r}
+shiny_data <- shiny_data %>%
+  mutate(across(c(df3.in.sqft_mode, df3.in.occupants_mode, df3.in.bedrooms_mode, df3.in.geometry_stories_mode),
+                as.numeric))
+
+
+df4 <- data.frame(df3$bldg_id,df3$in.ceiling_fan_mode,df3$in.clothes_dryer_mode,df3$in.clothes_washer_mode,df3$in.cooking_range_mode,df3$in.cooling_setpoint_mode,df3$county_mode,df3$in.dishwasher_mode,df3$in.ducts_mode,df3$in.geometry_floor_area_mode,df3$in.geometry_garage_mode,df3$in.heating_setpoint_mode,df3$in.hot_water_fixtures_mode,df3$in.income_mode,df3$in.income_recs_2015_mode,df3$in.income_recs_2020_mode,df3$in.infiltration_mode,df3$in.lighting_mode,df3$in.misc_hot_tub_spa_mode,df3$in.misc_pool_pump_mode,df3$in.occupants_mode,df3$in.usage_level_mode,df3$in.vacancy_status_mode,df3$in.vintage_mode,df3$in.weather_file_city_mode,df3$in.water_heater_efficiency_mode,df3$upgrade.infiltration_reduction_mode,df3$in.insulation_wall_mode, df3$in.weather_file_longitude_mode, df3$in.wea)
+
+df4$temp<-df3$Dry.Bulb.Temperature...C._mean
+df4$total_sum<-df3$total_sum
+df4$time_period<-df3$time_period
+df4$plain_date<-df3$plain_date
+df4$wind_speed<-df3$Wind.Speed..m.s._mean
+```
+
+```{r}
+lm2<-lm(total_sum~.,data=df4)
+summary(lm2)
+```
+
+```{r}
+
+df4_future <- df4
+df4_future$df3.in.sqft_mode= shiny_data$df3.in.sqft_mode
+df4_future$df3.in.occupants_mode= shiny_data$df3.in.occupants_mode
+df4_future$df3.in.bedrooms_mode = shiny_data$df3.in.bedrooms_mode
+df4_future$df3.in.geometry_stories_mode = shiny_data$df3.in.geometry_stories_mode
+df4_future$temp <- df4_future$temp + 5
+df4_future$df3.in.geometry_garage_mode <- gsub(" Car", "", df4_future$df3.in.geometry_garage_mode)
+
+
+df4_future <- df4_future %>%
+  mutate(df3.in.geometry_garage_mode = as.numeric(df3.in.geometry_garage_mode))
+```
+
+```{r}
+
+
+non_significant_cols<- c('df3.in.usage_level_mode','df3.in.vacancy_status_mode')
+#non_significant_cols<- c('df3.in.weather_file_city_mode')
+#non_significant_cols<- c('df3.in.clothes_dryer_mode.1','df3.in.insulation_wall_mode.1','df3.in.cooking_range_mode.1','df3.in.geometry_garage_mode.1')
+df4_future <- df4_future %>% select(-one_of(non_significant_cols))
+
+lm2<-lm(total_sum~.,data=df4_future)
+summary(lm2)
+summary(lm_past)
+```
+
+```{r}
+df4 <- df4_future
+df4$temp <- df4_future$temp -5
+
+lm_past<-lm(total_sum~.,data=df4)
+summary(lm_past)
+
+predictions<-predict(lm_past,newdata = df4_future)
+
+df4_future$predicted_new_energy<-predictions
+```
+
+```{r}
+
+ggplot(df4, aes(x = df3.county_mode, y = total_sum)) +
+        geom_point() +
+        geom_smooth(method = "lm", se = FALSE) +
+        labs(title = "Lineplot of Dry Bulb Temperature vs. Total Energy Usage")+
+   theme(axis.text.x = element_text(angle = 65, hjust = 1))
+    )
+```
+
+```{r}
+ggplot(df4_future, aes(x = df3.county_mode, y = predicted_new_energy)) +
+        geom_line() +
+        geom_smooth(method = "lm", se = FALSE) +
+        labs(title = "Lineplot of Dry Bulb Temperature vs. Total Energy Usage") +
+  theme(axis.text.x = element_text(angle = 65, hjust = 1))
+    )
+```
+
+
+```{r}
+
+
+# Create a ggplot object for South Carolina
+df3_map_plot_test<- df3 %>% 
+      filter(county_mode == 'G4500710')
+sc_plot <- ggplot() +
+  geom_polygon(data = sc_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  theme_void()
+# Plot the points on the South Carolina map
+sc_plot +
+  geom_point(data = df3_map_plot_test,
+             aes(as.numeric(in.weather_file_longitude_mode),as.numeric(in.weather_file_longitude_mode), color = as.character(total_sum), size = 100)) +
+  geom_text(data = df3_map_plot_test,
+            aes(label = in.weather_file_city_mode, x = as.numeric(in.weather_file_longitude_mode), y = as.numeric(in.weather_file_longitude_mode)), 
+            vjust = -0.5, angle = 45) +
+  labs(title = "Energy Usage in South Carolina") +
+  scale_color_discrete() +  # Use discrete color scale instead of continuous
+  scale_size_continuous() 
+
+
+
+```
