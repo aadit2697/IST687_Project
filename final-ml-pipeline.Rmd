@@ -458,7 +458,41 @@ rsquared_elastic_net <- R2(predictions_elastic_net, test_df$total_sum)
 print(paste("R-Squared (Elastic Net): ", rsquared_elastic_net))
 
 ```
+## Model #5 - Linear model 2(Abhishek Namana)
 
+set.seed(123)
+n <- nrow(df4)
+
+train_size <- floor(0. * n)
+train_indices <- sample(1:n, train_size)
+train_set <- df4[train_indices, ]
+test_set <- df4[-train_indices, ]
+lm_model <- lm(total_sum~., data = train_set)
+summary(lm_model)
+predicted_lm_values <- predict(lm_model, data = test_set)
+predicted_lm_values <- data.frame(predicted_lm_values)
+actual_lm_values <- data.frame(test_set$total_sum)
+library(ggplot2)
+
+comparison_df <- data.frame(Actual = actual_lm_values, Predicted =predicted_lm_values )
+
+# Create a scatter plot for the aboce predicted linear model
+ggplot(comparison_df, aes(x = comparison_df$Actual, y = comparison_df$Predicted)) +
+  geom_point() +  # Add points
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +  # Perfect prediction line
+  theme_minimal() +
+  labs(title = "Actual vs Predicted Values",
+       x = "Actual Values",
+       y = "Predicted Values")
+ggplot(comparison_df, aes(x = Actual, y = Value, color = Key)) +
+    geom_line() +
+    theme_minimal() +
+    labs(title = "Actual vs Predicted Values",
+         x = "Index",
+         y = "Value",
+         color = "Legend") +
+    scale_color_manual(values = c("blue", "red"))
+```
 ```{r}
 # Saving data
 save.image("final-ml-pipeline.RData")
