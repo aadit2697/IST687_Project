@@ -101,5 +101,103 @@ ggplot(model_table%>%filter(total>0))+geom_boxplot(aes(hour,total,group=hour))
 
 Result: There are many records that could be considered as outliers for every hour. There are hourly total of negative values, too, as seen in last chunk of code.
 
+4.Total Energy Consumption in July (Abhishek)
+```{r}
+model_data <- load('descriptive.RData')
+library(ggplot2)
+library(lubridate)
 
+model_data$time <- ymd_hms(model_data$time)
+
+# Filter data for the month of July
+july_data <- model_data %>% 
+  filter(month(time) == 7)
+
+# Line plot for total energy consumption over time in July
+ggplot(july_data, aes(x = time, y = total)) +
+  geom_line() +
+  labs(title = "Total Energy Consumption in July", x = "Date", y = "Energy Consumption (kWh)") +
+  theme_minimal()
+```
+
+4.Comparision of energy sources
+```
+{r}
+library(ggplot2)
+library(reshape2)
+long_data <- melt(model_table, measure.vars = c("electricity", "fuel", "gas", "propane"))
+
+ggplot(long_data, aes(x = variable, y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(x = "Category", y = "Value", title = "Comparison of Energy Sources") +
+  theme_minimal()
+```
+5.Energy Consumption by County
+```
+{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+
+summarized_data <- model_table %>%
+  group_by(county) %>%
+  summarise(electricity = sum(electricity, na.rm = TRUE),
+            fuel = sum(fuel, na.rm = TRUE),
+            gas = sum(gas, na.rm = TRUE),
+            propane = sum(propane, na.rm = TRUE))
+
+long_data <- melt(summarized_data, id.vars = "county")
+
+ggplot(long_data, aes(x = county, y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(x = "County", y = "Total Consumption", title = "Energy Consumption by County") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 8)) # Rotate and adjust the size
+```
+5.Energy consumption by appliances
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+appliance_sums <- model_table %>%
+  summarise(
+    CeilingFan = sum(out.electricity.ceiling_fan.energy_consumption, na.rm = TRUE),
+    ClothesDryer = sum(out.electricity.clothes_dryer.energy_consumption, na.rm = TRUE),
+    ClothesWasher = sum(out.electricity.clothes_washer.energy_consumption, na.rm = TRUE),
+    CoolingFansPumps = sum(out.electricity.cooling_fans_pumps.energy_consumption, na.rm = TRUE),
+    Cooling = sum(out.electricity.cooling.energy_consumption, na.rm = TRUE),
+    Dishwasher = sum(out.electricity.dishwasher.energy_consumption, na.rm = TRUE),
+    Freezer = sum(out.electricity.freezer.energy_consumption, na.rm = TRUE),
+    HeatingFansPumps = sum(out.electricity.heating_fans_pumps.energy_consumption, na.rm = TRUE),
+    HeatingHpBkup = sum(out.electricity.heating_hp_bkup.energy_consumption, na.rm = TRUE),
+    Heating = sum(out.electricity.heating.energy_consumption, na.rm = TRUE),
+    HotTubHeater = sum(out.electricity.hot_tub_heater.energy_consumption, na.rm = TRUE),
+    HotTubPump = sum(out.electricity.hot_tub_pump.energy_consumption, na.rm = TRUE),
+    HotWater = sum(out.electricity.hot_water.energy_consumption, na.rm = TRUE),
+    LightingExterior = sum(out.electricity.lighting_exterior.energy_consumption, na.rm = TRUE),
+    LightingGarage = sum(out.electricity.lighting_garage.energy_consumption, na.rm = TRUE),
+    LightingInterior = sum(out.electricity.lighting_interior.energy_consumption, na.rm = TRUE),
+    MechVent = sum(out.electricity.mech_vent.energy_consumption, na.rm = TRUE),
+    PlugLoads = sum(out.electricity.plug_loads.energy_consumption, na.rm = TRUE),
+    PoolHeater = sum(out.electricity.pool_heater.energy_consumption, na.rm = TRUE),
+    PoolPump = sum(out.electricity.pool_pump.energy_consumption, na.rm = TRUE),
+    Pv = sum(out.electricity.pv.energy_consumption, na.rm = TRUE),
+    RangeOven = sum(out.electricity.range_oven.energy_consumption, na.rm = TRUE),
+    Refrigerator = sum(out.electricity.refrigerator.energy_consumption, na.rm = TRUE),
+    WellPump = sum(out.electricity.well_pump.energy_consumption, na.rm = TRUE)
+  ) %>% 
+  pivot_longer(cols = everything(), names_to = "Appliance", values_to = "Consumption")
+
+# Plot the total electricity consumption for each appliance in descending order
+ggplot(appliance_sums, aes(x = reorder(Appliance, -Consumption), y = Consumption)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(x = "Appliance", y = "Total Electricity Consumption (kWh)", title = "Total Electricity Consumption by Appliance") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  guides(fill=FALSE)
+```
+6.
 
